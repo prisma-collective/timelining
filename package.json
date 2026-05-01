@@ -20,7 +20,7 @@
     "dotenv": "^16.4.7",
     "inquirer": "^12.6.0",
     "neo4j-driver": "4",
-    "next": "^15.3.1",
+    "next": "15.3.8",
     "node-telegram-bot-api": "^0.63.0",
     "supertest": "^7.1.0",
     "typescript": "^5.8.3",
