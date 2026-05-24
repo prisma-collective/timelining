@@ -1,6 +1,6 @@
 {
   "name": "timelining",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "status: in-progress, early-stage",
   "scripts": {
     "db:up": "docker-compose -f ./test/test-env/docker-compose.yml up -d",
