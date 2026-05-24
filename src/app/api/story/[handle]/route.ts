@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initDriver } from '@/lib/db/neo4j';
+import { initDriver, isNeo4jAvailable } from '@/lib/db/neo4j';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest, {
@@ -8,6 +8,19 @@ export async function GET(req: NextRequest, {
   params: Promise<{ handle: string }>
 }) {
   const { handle } = await params
+
+  const neo4jReady = await isNeo4jAvailable();
+  if (!neo4jReady) {
+    logger.warn(`Neo4j not available. Cannot fetch data for handle: ${handle}`);
+    return NextResponse.json(
+      {
+        error: 'Database not configured',
+        message: 'Neo4j is not available. Please configure Neo4j credentials to access this data.'
+      },
+      { status: 503 } // Service Unavailable
+    );
+  }
+
   const driver = await initDriver();
   const session = driver.session({ database: 'neo4j' })
 

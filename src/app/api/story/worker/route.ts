@@ -9,7 +9,8 @@ export async function GET() {
     const result = await runWorker(); // assuming it returns a status or object
     logger.info('Worker result', { result });
 
-    return NextResponse.json({ status: 'Worker executed', result });
+    // Return 200 even when Neo4j is unavailable
+    return NextResponse.json({ status: 'Worker executed', result }, { status: 200 });
   } catch (error: unknown) {
     if (error instanceof Error) {
       // TypeScript now knows 'error' is an instance of Error

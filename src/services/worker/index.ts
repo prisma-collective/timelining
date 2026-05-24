@@ -2,6 +2,7 @@ import { logger } from '../../lib/logger';
 import { redis } from '../../lib/redis';
 import { TelegramMessage } from '../../lib/telegram';
 import { writeEntry } from './process';
+import { isNeo4jAvailable } from '../../lib/db/neo4j';
 
 // Constants for optimization
 const BATCH_SIZE = 10; // Process multiple messages per invocation
@@ -26,6 +27,20 @@ export async function runWorker(): Promise<WorkerResult> {
     let failedCount = 0;
     let lastFailedMessage: number | undefined = undefined;
 
+    const neo4jReady = await isNeo4jAvailable();
+
+    if (!neo4jReady) {
+        const remainingCount = await redis.llen('telegram_messages');
+        logger.warn(`Neo4j not available. Skipping processing. ${remainingCount} messages queued.`);
+
+        return {
+            status: 'skipped',
+            message: 'Neo4j not configured. Messages remain in queue for later processing.',
+            processed_count: 0,
+            remaining_count: remainingCount,
+        };
+    }
+
     try {
         // Process messages in batches
         for (let i = 0; i < BATCH_SIZE; i++) {
@@ -48,7 +63,7 @@ export async function runWorker(): Promise<WorkerResult> {
             try {
                 // Write metadata to neo4j db
                 const recordId = await writeEntry(messageData);
-                
+
                 if (recordId) {
                     logger.info('Wrote message metadata to db');
                     processedCount++;
@@ -69,7 +84,7 @@ export async function runWorker(): Promise<WorkerResult> {
                     await redis.rpush('telegram_messages', message); // Keep it for manual retry
                     break;
                 }
-                
+
                 lastFailedMessage = messageData.message?.message_id;
                 await redis.rpush('telegram_messages', message);
             }

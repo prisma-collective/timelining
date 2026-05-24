@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initDriver } from '@/lib/db/neo4j';
+import { initDriver, isNeo4jAvailable } from '@/lib/db/neo4j';
 import { logger } from '@/lib/logger';
 import neo4j from 'neo4j-driver';
 import { getCorsHeaders } from '@/lib/utils';
@@ -50,6 +50,26 @@ function normalize(value: any): any {
 export async function GET(_req: NextRequest) {
   const origin = _req.headers.get('origin');
   console.log("Request origin:", origin);
+
+  const neo4jReady = await isNeo4jAvailable();
+  if (!neo4jReady) {
+    logger.warn('Neo4j not available. Cannot stream nodes.');
+    return new NextResponse(
+      JSON.stringify({
+        error: 'Database not configured',
+        message: 'Neo4j is not available. Please configure Neo4j credentials to access visualization data.'
+      }),
+      {
+        status: 503,
+        headers: {
+          'Content-Type': 'application/json',
+          'Vary': 'Origin',
+          ...getCorsHeaders(origin, allowedOrigins),
+        }
+      }
+    );
+  }
+
   const driver = await initDriver();
   const session = driver.session({ database: 'neo4j' });
 
