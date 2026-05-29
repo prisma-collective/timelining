@@ -10,7 +10,7 @@
       },
       {
         "path": "/api/story/voice-vectorise",
-        "schedule": "0 0 * * *"
+        "schedule": "*/15 * * * *"
       }
     ]
   }

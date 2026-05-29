@@ -1,4 +1,5 @@
 import { initDriver } from '@/lib/db/neo4j';
+import neo4j from 'neo4j-driver';
 import { mapVoiceNode } from '@/lib/db/mappers';
 import type {
   VoiceFailedStage,
@@ -7,7 +8,6 @@ import type {
 } from '@/lib/db/models/entry';
 import type { VoicePipelineCounts } from './types';
 import { MAX_RETRIES } from './types';
-import type { Node } from 'neo4j-driver';
 
 export async function pickVoiceIdsByStatus(
   status: VoiceProcessingStatus,
@@ -25,7 +25,7 @@ export async function pickVoiceIdsByStatus(
       ORDER BY v.id
       LIMIT $limit
       `,
-      { status, limit }
+      { status, limit: neo4j.int(limit) }
     );
     return result.records.map((r) => r.get('id') as string);
   } finally {
