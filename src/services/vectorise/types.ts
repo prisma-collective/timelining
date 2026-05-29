@@ -15,6 +15,21 @@ export interface VoicePipelineCounts {
   deferred_long: number;
 }
 
+export interface TranscribeTickResult {
+  status: 'success' | 'skipped' | 'error';
+  message?: string;
+  transcribed: number;
+  skipped_long: number;
+  failed: number;
+}
+
+export interface VectoriseTickResult {
+  status: 'success' | 'skipped' | 'error';
+  message?: string;
+  vectorised: number;
+  failed: number;
+}
+
 export interface VoiceVectoriseResult {
   status: 'success' | 'skipped' | 'error';
   message?: string;
