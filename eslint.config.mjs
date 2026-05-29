@@ -15,7 +15,7 @@ export default defineConfig([
     rules: {
       ...nextPlugin.configs.recommended.rules,
     },
-    extends: ["js/recommended"],
+    extends: ["js/recommended", "plugin:@next/next/recommended"],
     languageOptions: {
       globals: globals.node,
     },
