@@ -11,6 +11,10 @@ import {
     EntityNode, 
     PhotoNode, 
     VoiceNode,
+    VoiceChunkNode,
+    VoiceWithEntry,
+    VoiceProcessingStatus,
+    VoiceFailedStage,
     FullEntryInputData,
     VideoNode,
     VideoNoteNode
@@ -178,14 +182,44 @@ function mapPhotoNodes(photos: Node[]): PhotoNode[] {
     }));
 }
 
-function mapVoiceNode(node: Node): VoiceNode {
+function toNumber(value: unknown): number {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'object' && value !== null && 'toNumber' in value) {
+        return (value as { toNumber: () => number }).toNumber();
+    }
+    return Number(value);
+}
+
+export function mapVoiceNode(node: Node): VoiceNode {
+    const props = node.properties;
     return {
-        id: node.properties.id,
-        fileId: node.properties.fileId,
-        fileUniqueId: node.properties.fileUniqueId,
-        fileSize: node.properties.fileSize,
-        duration: node.properties.duration,
-        mimeType: node.properties.mimeType,
+        id: props.id,
+        fileId: props.fileId,
+        fileUniqueId: props.fileUniqueId,
+        fileSize: toNumber(props.fileSize),
+        duration: toNumber(props.duration),
+        mimeType: props.mimeType,
+        transcription: props.transcription ?? undefined,
+        processingStatus: (props.processingStatus ?? 'pending') as VoiceProcessingStatus,
+        retryCount: toNumber(props.retryCount ?? 0),
+        failedStage: props.failedStage as VoiceFailedStage | undefined,
+    };
+}
+
+export function mapVoiceChunkNode(node: Node): VoiceChunkNode {
+    const props = node.properties;
+    return {
+        id: props.id,
+        chunk_text: props.chunk_text,
+        embedding: props.embedding,
+    };
+}
+
+export function mapVoiceWithEntry(record: { get: (key: string) => Node }): VoiceWithEntry {
+    const entryNode = record.get('e');
+    return {
+        entryId: entryNode.properties.id,
+        voice: mapVoiceNode(record.get('v')),
     };
 }
 

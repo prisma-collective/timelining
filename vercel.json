@@ -7,6 +7,10 @@
       {
         "path": "/api/story/worker",
         "schedule": "0 0 * * *"
+      },
+      {
+        "path": "/api/story/voice-vectorise",
+        "schedule": "0 0 * * *"
       }
     ]
   }

@@ -67,7 +67,6 @@ export async function runWorker(): Promise<WorkerResult> {
                 if (recordId) {
                     logger.info('Wrote message metadata to db');
                     processedCount++;
-                    await redis.lpush('timeline_entry', recordId)
                     lastFailedMessage = undefined; // Reset on success
                 } else {
                     failedCount++;

@@ -43,6 +43,15 @@ export interface PhotoNode {
   height: number;
 }
 
+export type VoiceProcessingStatus =
+  | 'pending'
+  | 'transcribed'
+  | 'vectorised'
+  | 'deferred_long'
+  | 'failed';
+
+export type VoiceFailedStage = 'transcribe' | 'vectorise';
+
 export interface VoiceNode {
   id: string;
   fileId: string;
@@ -50,6 +59,21 @@ export interface VoiceNode {
   fileSize: number;
   duration: number;
   mimeType: string;
+  transcription?: string;
+  processingStatus: VoiceProcessingStatus;
+  retryCount: number;
+  failedStage?: VoiceFailedStage;
+}
+
+export interface VoiceChunkNode {
+  id: string;
+  chunk_text: string;
+  embedding: number[];
+}
+
+export interface VoiceWithEntry {
+  entryId: string;
+  voice: VoiceNode;
 }
 
 export interface VideoNode {

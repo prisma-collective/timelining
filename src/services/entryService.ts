@@ -120,7 +120,9 @@ export async function createEntry(input: FullEntryInputData): Promise<string> {
           fileUniqueId: $voiceFileUniqueId,
           fileSize: $voiceFileSize,
           duration: $voiceDuration,
-          mimeType: $voiceMimeType
+          mimeType: $voiceMimeType,
+          processingStatus: 'pending',
+          retryCount: 0
         })
         MERGE (e)-[:HAS_VOICE]->(vn)
         WITH e, p, c

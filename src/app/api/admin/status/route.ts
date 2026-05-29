@@ -2,40 +2,39 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
+import { countPipelineByStatus } from '@/services/vectorise/neo4j';
 
-/**
-  System status endpoint
-  Shows Neo4j availability, Redis queue status, and overall health
- 
-  Returns:
-    - neo4j_available: boolean
-    - redis_available: boolean
-    - queued_messages: number
-    - processed_entries: number
-    - mode: "full" | "redis-only"
-    - health: "healthy" | "degraded" | "error"
- */
 export async function GET() {
   logger.info('Status check requested');
 
   try {
-    // Check Neo4j
     const neo4jReady = await isNeo4jAvailable();
 
-    // Check Redis and get queue lengths
     let redisAvailable = true;
     let queuedMessages = 0;
-    let processedEntries = 0;
+    let voicePipeline = {
+      pending: 0,
+      transcribed: 0,
+      vectorised: 0,
+      failed: 0,
+      deferred_long: 0,
+    };
 
     try {
       queuedMessages = await redis.llen('telegram_messages');
-      processedEntries = await redis.llen('timeline_entry');
     } catch (err) {
       logger.error('Redis check failed', { error: err });
       redisAvailable = false;
     }
 
-    // Determine system health
+    if (neo4jReady) {
+      try {
+        voicePipeline = await countPipelineByStatus();
+      } catch (err) {
+        logger.error('Voice pipeline status check failed', { error: err });
+      }
+    }
+
     let health: 'healthy' | 'degraded' | 'error';
     let mode: 'full' | 'redis-only';
 
@@ -49,6 +48,8 @@ export async function GET() {
       health = 'healthy';
       mode = 'full';
     }
+
+    const voiceOutstanding = voicePipeline.pending + voicePipeline.transcribed;
 
     const status = {
       health,
@@ -72,16 +73,14 @@ export async function GET() {
       },
       queues: {
         telegram_messages: queuedMessages,
-        timeline_entry: processedEntries,
       },
+      voice_pipeline: voicePipeline,
       messages: {
         queued: queuedMessages,
-        processed: processedEntries,
-        total: queuedMessages + processedEntries,
+        voice_outstanding: voiceOutstanding,
       },
     };
 
-    // Return 200 for healthy/degraded, 503 for error
     const statusCode = health === 'error' ? 503 : 200;
 
     return NextResponse.json(status, { status: statusCode });
