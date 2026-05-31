@@ -1,31 +1,40 @@
+import { verifyInfraRequest } from '@/lib/private-auth';
+import { logger } from '@/lib/logger';
+import { processLogDrain } from '@/services/docs/logDrain';
 import { NextRequest, NextResponse } from 'next/server';
 
+const VERCEL_VERIFY_HEADER = 'x-vercel-verify';
+const VERCEL_VERIFY_VALUE = '72062fa2aabce4106de99743f55a6b6a4f0ba296';
+
 export async function POST(req: NextRequest) {
-  console.log(req)
-  return NextResponse.json({req}, { 
-    status: 200, 
-    headers: { 'x-vercel-verify': '72062fa2aabce4106de99743f55a6b6a4f0ba296' } 
-  });
+  const verifyChallenge = req.headers.get(VERCEL_VERIFY_HEADER);
+  if (verifyChallenge) {
+    return NextResponse.json(
+      { ok: true },
+      {
+        status: 200,
+        headers: { [VERCEL_VERIFY_HEADER]: VERCEL_VERIFY_VALUE },
+      }
+    );
+  }
+
+  const authError = verifyInfraRequest(req);
+  if (authError) {
+    return authError;
+  }
+
+  try {
+    const body: unknown = await req.json();
+    const result = await processLogDrain(body);
+    return NextResponse.json(result, { status: 200 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+
+    if (message.startsWith('Invalid log format')) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    logger.error('Log drain failed', { error: message });
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
-  
-    // try {
-    //     const logs = req.body;
-
-    //     // Assuming logs are an array, where each log contains information like page URL
-    //     if (Array.isArray(logs)) {
-    //     for (const log of logs) {
-    //         // Extract the relevant log data for page views
-    //         const { url, timestamp } = log;
-
-    //         // Write the page view data to the Neo4j database
-    //         await recordPageView({ pageUrl: url, timestamp });
-    //     }
-    //     } else {
-    //     return res.status(400).json({ message: 'Invalid log format' });
-    //     }
-
-    //     return res.status(200).json({ message: 'Logs processed successfully' });
-    // } catch (error) {
-    //     console.error('Error processing logs:', error);
-    //     return res.status(500).json({ message: 'Internal Server Error' });
-    // }
