@@ -11,6 +11,14 @@
       {
         "path": "/api/story/voice-vectorise",
         "schedule": "*/15 * * * *"
+      },
+      {
+        "path": "/api/docs/ingest",
+        "schedule": "0 */6 * * *"
+      },
+      {
+        "path": "/api/story/page-vectorise",
+        "schedule": "*/15 * * * *"
       }
     ]
   }

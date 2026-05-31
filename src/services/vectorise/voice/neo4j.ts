@@ -6,7 +6,7 @@ import type {
   VoiceNode,
   VoiceProcessingStatus,
 } from '@/lib/db/models/entry';
-import type { VoicePipelineCounts } from './types';
+import type { VoiceChunkInput, VoicePipelineCounts } from './types';
 import { MAX_RETRIES } from './types';
 
 export async function pickVoiceIdsByStatus(
@@ -90,9 +90,11 @@ export async function markTranscribed(voiceId: string, transcription: string): P
 
 export async function markVectorised(
   voiceId: string,
-  chunks: string[],
-  embeddings: number[][]
+  chunkInputs: VoiceChunkInput[]
 ): Promise<void> {
+  const chunks = chunkInputs.map((c) => c.chunk_text);
+  const embeddings = chunkInputs.map((c) => c.embedding);
+
   const driver = await initDriver();
   const session = driver.session({ database: 'neo4j' });
 

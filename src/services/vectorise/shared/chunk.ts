@@ -5,6 +5,6 @@ const splitter = new RecursiveCharacterTextSplitter({
   chunkOverlap: 50,
 });
 
-export async function chunkVoiceTranscription(transcription: string): Promise<string[]> {
-  return splitter.splitText(transcription);
+export async function chunkText(text: string): Promise<string[]> {
+  return splitter.splitText(text);
 }

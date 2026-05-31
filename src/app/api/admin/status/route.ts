@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
-import { countPipelineByStatus } from '@/services/vectorise/neo4j';
+import { countPipelineByStatus } from '@/services/vectorise';
 
 export async function GET() {
   logger.info('Status check requested');

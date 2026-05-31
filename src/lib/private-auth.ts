@@ -18,3 +18,11 @@ export function verifyInfraRequest(request: NextRequest): NextResponse | null {
 
   return null;
 }
+
+/** Allows Vercel cron invocations or Bearer PRIVATE_API_TOKEN. */
+export function verifyCronOrInfraRequest(request: NextRequest): NextResponse | null {
+  if (request.headers.get('x-vercel-cron') === '1') {
+    return null;
+  }
+  return verifyInfraRequest(request);
+}

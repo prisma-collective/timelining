@@ -1,10 +1,10 @@
-import { verifyInfraRequest } from '@/lib/private-auth';
+import { verifyCronOrInfraRequest } from '@/lib/private-auth';
 import { logger } from '@/lib/logger';
 import { runDocsIngest } from '@/services/docs/ingest';
 import { NextRequest, NextResponse } from 'next/server';
 
 async function handleIngest(request: NextRequest) {
-  const authError = verifyInfraRequest(request);
+  const authError = verifyCronOrInfraRequest(request);
   if (authError) {
     return authError;
   }

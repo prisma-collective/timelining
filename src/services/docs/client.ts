@@ -27,3 +27,18 @@ export async function fetchDocsSnapshot(): Promise<PageSnapshotEntry[]> {
 
   return pages;
 }
+
+export async function fetchDocsPageContent(slug: string): Promise<string> {
+  const docsAppUrl = requireEnv('DOCS_APP_URL').replace(/\/$/, '');
+  const token = requireEnv('PRIVATE_API_TOKEN');
+
+  const res = await fetch(`${docsAppUrl}/api/serve/${encodeURIComponent(slug)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw new Error(`serve failed for ${slug}: ${res.status}`);
+  }
+
+  return res.text();
+}
