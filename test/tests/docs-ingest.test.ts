@@ -46,6 +46,35 @@ describe('API /api/docs/ingest', () => {
     expect(mockedRunDocsIngest).not.toHaveBeenCalled();
   });
 
+  it('should run ingest on GET with x-vercel-cron header', async () => {
+    mockedRunDocsIngest.mockResolvedValue(successResult);
+
+    const res = await GET(
+      new NextRequest('http://localhost/api/docs/ingest', {
+        headers: { 'x-vercel-cron': '1' },
+      })
+    );
+
+    expect(mockedRunDocsIngest).toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
+  it('should run ingest on GET with Vercel cron schedule header', async () => {
+    mockedRunDocsIngest.mockResolvedValue(successResult);
+
+    const res = await GET(
+      new NextRequest('http://localhost/api/docs/ingest', {
+        headers: {
+          'x-vercel-cron-schedule': '0 */6 * * *',
+          'user-agent': 'vercel-cron/1.0',
+        },
+      })
+    );
+
+    expect(mockedRunDocsIngest).toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
   it('should run ingest on GET with valid token', async () => {
     mockedRunDocsIngest.mockResolvedValue(successResult);
 
