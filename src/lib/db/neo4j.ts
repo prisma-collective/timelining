@@ -1,10 +1,13 @@
 import neo4j, { Driver } from 'neo4j-driver';
 import { logger } from '../logger';
 
-// Environment variables
-const uri = process.env.NEO4J_URI || 'bolt://localhost:7687';
-const user = process.env.NEO4J_USERNAME || 'neo4j';
-const password = process.env.NEO4J_PASSWORD || 'neo4jtesting';
+function getNeo4jConfig() {
+  return {
+    uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
+    user: process.env.NEO4J_USERNAME || 'neo4j',
+    password: process.env.NEO4J_PASSWORD || 'neo4jtesting',
+  };
+}
 
 // Use the type inferred from neo4j.driver() for best compatibility
 let _driver: Driver | null;
@@ -12,6 +15,7 @@ let _neo4jAvailable: boolean | null = null; // Track Neo4j availability
 
 export function getDriver() {
   if (!_driver) {
+    const { uri, user, password } = getNeo4jConfig();
     logger.info(`Connecting to Neo4j at ${uri} with user ${user}`);
     _driver = neo4j.driver(
       uri,

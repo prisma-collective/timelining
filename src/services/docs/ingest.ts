@@ -2,6 +2,7 @@ import { isNeo4jAvailable } from '@/lib/db/neo4j';
 import type { DocsIngestResult, DocsIngestStats } from '@/lib/db/models/page';
 import { logger } from '@/lib/logger';
 import { fetchDocsSnapshot } from './client';
+import { isDocsChecksumCurrent } from './pageVerify';
 import { getDocsPageChecksum, syncDocsPageFromSnapshot, writeDocsIngestRun } from './pageService';
 
 export async function runDocsIngest(): Promise<DocsIngestResult> {
@@ -32,7 +33,7 @@ export async function runDocsIngest(): Promise<DocsIngestResult> {
     for (const page of pages) {
       const existingChecksum = await getDocsPageChecksum(page.slug);
 
-      if (existingChecksum === page.checksum) {
+      if (isDocsChecksumCurrent(existingChecksum, page.checksum)) {
         continue;
       }
 

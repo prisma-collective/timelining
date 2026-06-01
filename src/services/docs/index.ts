@@ -7,3 +7,8 @@ export {
   syncDocsPageFromSnapshot,
   writeDocsIngestRun,
 } from './pageService';
+export {
+  isDocsChecksumCurrent,
+  isVectorisePending,
+  runDocsPageVerification,
+} from './pageVerify';

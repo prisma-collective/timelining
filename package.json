@@ -12,6 +12,7 @@
     "get:webhook": "tsx scripts/getWebhook.ts",
     "triggerWorker": "tsx scripts/triggerWorker.ts",
     "create:vector-index": "tsx scripts/createVectorIndex.ts",
+    "verify:page-ingest": "tsx scripts/verify-page-ingest.ts",
     "dev": "next dev --turbopack",
     "build": "next build"
   },

@@ -8,7 +8,7 @@
 | Workstream 2 — Phase 1 ingest | timelining | **DONE** |
 | Workstream 3 — Phase 2 vectorisation | timelining | **DONE** |
 | Workstream 4 — Cron | timelining | **DONE** |
-| Workstream 5 — Verify script | timelining | TODO |
+| Workstream 5 — Verify script | timelining | **DONE** |
 
 ---
 
@@ -538,7 +538,7 @@ Ingest runs every 6 hours. Page vectorisation runs every 15 minutes and batch-pr
 
 ## Workstream 5 — Verification Script (CLI)
 
-**Status: TODO.** Next workstream — implement against the completed WS2–WS4 layout below.
+**Status: DONE.**
 
 A standalone script in timelining at `scripts/verify-page-ingest.ts`, runnable directly via `npx tsx`. Uses the same snapshot and Neo4j query logic as the ingest and vectorise pipelines so verification reflects exactly what those endpoints check.
 
