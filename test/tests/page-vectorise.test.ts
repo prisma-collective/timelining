@@ -1,5 +1,6 @@
 import { GET, POST } from '@/app/api/story/page-vectorise/route';
 import { buildPageVectoriseResult, runPageVectoriseTick } from '@/services/vectorise';
+import { NextRequest } from 'next/server';
 
 jest.mock('@/services/vectorise/index', () => ({
   runPageVectoriseTick: jest.fn(),
@@ -28,7 +29,15 @@ const mergedResult = {
   vectorised: 2,
   failed: 0,
   outstanding: 5,
+  hasMore: true,
 };
+
+function buildRequest(method: 'GET' | 'POST') {
+  return new NextRequest('http://localhost:3000/api/story/page-vectorise', {
+    method,
+    headers: { 'x-vercel-cron': '1' },
+  });
+}
 
 describe('API /api/story/page-vectorise', () => {
   beforeEach(() => {
@@ -36,19 +45,22 @@ describe('API /api/story/page-vectorise', () => {
     mockedBuildPageVectoriseResult.mockReset();
   });
 
-  it('should return 405 for non-GET requests', async () => {
-    const res = await POST();
+  it('should handle POST for internal chaining', async () => {
+    mockedRunPageVectoriseTick.mockResolvedValue(tickResult);
+    mockedBuildPageVectoriseResult.mockResolvedValue({
+      ...mergedResult,
+      hasMore: false,
+    });
 
-    expect(res.status).toBe(405);
-    const text = await res.text();
-    expect(text).toBe('Method Not Allowed');
+    const res = await POST(buildRequest('POST'));
+    expect(res.status).toBe(200);
   });
 
   it('should run page vectorise tick and return merged result', async () => {
     mockedRunPageVectoriseTick.mockResolvedValue(tickResult);
     mockedBuildPageVectoriseResult.mockResolvedValue(mergedResult);
 
-    const res = await GET();
+    const res = await GET(buildRequest('GET'));
 
     expect(mockedRunPageVectoriseTick).toHaveBeenCalled();
     expect(mockedBuildPageVectoriseResult).toHaveBeenCalledWith(tickResult);
@@ -57,14 +69,14 @@ describe('API /api/story/page-vectorise', () => {
     const json = await res.json();
     expect(json).toEqual({
       status: 'Page vectorise executed',
-      result: mergedResult,
+      result: { ...mergedResult, retriggered: true },
     });
   });
 
   it('should handle tick errors gracefully', async () => {
     mockedRunPageVectoriseTick.mockRejectedValue(new Error('Something failed'));
 
-    const res = await GET();
+    const res = await GET(buildRequest('GET'));
 
     expect(res.status).toBe(500);
   });

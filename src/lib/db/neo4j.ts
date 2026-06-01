@@ -12,6 +12,7 @@ function getNeo4jConfig() {
 // Use the type inferred from neo4j.driver() for best compatibility
 let _driver: Driver | null;
 let _neo4jAvailable: boolean | null = null; // Track Neo4j availability
+let _driverConnectivityVerified = false;
 
 export function getDriver() {
   if (!_driver) {
@@ -56,17 +57,23 @@ export async function isNeo4jAvailable(): Promise<boolean> {
 }
 
 export async function initDriver() {
-  logger.info('Initializing Neo4j connection...');
   const driver = getDriver();
+  if (_driverConnectivityVerified) {
+    return driver;
+  }
 
   try {
+    logger.info('Initializing Neo4j connection...');
     logger.info('Verifying connection to Neo4j...');
     const serverInfo = await driver.verifyConnectivity(); 
     logger.info('Server Info:', serverInfo);
+    _driverConnectivityVerified = true;
     return driver;
   } catch (err) {
     logger.error(`Failed to initialize Neo4j driver: ${err instanceof Error ? err.message : 'Unknown error'}`);
     await driver.close();  
+    _driverConnectivityVerified = false;
+    _driver = null;
     throw err;
   }
 }
@@ -76,5 +83,6 @@ export async function closeDriver() {
     logger.info('Closing Neo4j driver...');
     await _driver.close(); 
     _driver = null;
+    _driverConnectivityVerified = false;
   }
 }

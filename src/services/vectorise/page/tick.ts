@@ -1,11 +1,21 @@
 import { logger } from '@/lib/logger';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
+import { parseNonNegativeEnvInt } from '@/lib/internal-continuation';
 import { VECTORISE_BATCH_SIZE } from '../shared/types';
 import type { ScheduleHint } from '../shared/types';
 import { hasTimeRemaining } from '../shared/tickUtils';
 import { countPagesNeedingVectorisation, pickPagesNeedingVectorisation } from './neo4j';
 import { vectorisePageStage } from './stage';
 import type { PageVectoriseResult, PageVectoriseTickResult } from './types';
+
+const DEFAULT_PAGE_STAGE_RESERVE_MS = 2500;
+
+function getPageStageReserveMs(): number {
+  return parseNonNegativeEnvInt(
+    'PAGE_VECTORISE_STAGE_RESERVE_MS',
+    DEFAULT_PAGE_STAGE_RESERVE_MS
+  );
+}
 
 export async function runPageVectoriseTick(): Promise<PageVectoriseTickResult> {
   const counts = { vectorised: 0, failed: 0 };
@@ -23,8 +33,17 @@ export async function runPageVectoriseTick(): Promise<PageVectoriseTickResult> {
     }
 
     const startTime = Date.now();
+    const stageReserveMs = getPageStageReserveMs();
     for (const slug of slugs) {
-      if (!hasTimeRemaining(startTime)) break;
+      // Avoid starting a full page stage when we are close to timeout.
+      if (!hasTimeRemaining(startTime, stageReserveMs)) {
+        logger.info('Page vectorise tick stopping early due to time budget', {
+          processed: counts.vectorised + counts.failed,
+          totalCandidates: slugs.length,
+          stageReserveMs,
+        });
+        break;
+      }
 
       const result = await vectorisePageStage(slug);
       if (result === 'vectorised') counts.vectorised++;
@@ -53,6 +72,7 @@ export async function buildPageVectoriseResult(
       vectorised,
       failed,
       outstanding: 0,
+      hasMore: false,
     };
   }
 
@@ -67,6 +87,7 @@ export async function buildPageVectoriseResult(
       vectorised,
       failed,
       outstanding,
+      hasMore: outstanding > 0,
     };
   }
 
@@ -83,6 +104,7 @@ export async function buildPageVectoriseResult(
     vectorised,
     failed,
     outstanding,
+    hasMore: outstanding > 0,
   };
 }
 

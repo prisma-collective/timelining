@@ -4,6 +4,7 @@ import {
   runTranscribeTick,
   runVectoriseTick,
 } from '@/services/vectorise';
+import { NextRequest } from 'next/server';
 
 jest.mock('@/services/vectorise/index', () => ({
   runTranscribeTick: jest.fn(),
@@ -45,7 +46,15 @@ const mergedResult = {
     failed: 0,
     deferred_long: 0,
   },
+  hasMore: true,
 };
+
+function buildRequest(method: 'GET' | 'POST') {
+  return new NextRequest('http://localhost:3000/api/story/voice-vectorise', {
+    method,
+    headers: { 'x-vercel-cron': '1' },
+  });
+}
 
 describe('API /api/story/voice-vectorise', () => {
   beforeEach(() => {
@@ -54,12 +63,16 @@ describe('API /api/story/voice-vectorise', () => {
     mockedBuildVoiceVectoriseResult.mockReset();
   });
 
-  it('should return 405 for non-GET requests', async () => {
-    const res = await POST();
+  it('should handle POST for internal chaining', async () => {
+    mockedRunTranscribeTick.mockResolvedValue(transcribeTickResult);
+    mockedRunVectoriseTick.mockResolvedValue(vectoriseTickResult);
+    mockedBuildVoiceVectoriseResult.mockResolvedValue({
+      ...mergedResult,
+      hasMore: false,
+    });
 
-    expect(res.status).toBe(405);
-    const text = await res.text();
-    expect(text).toBe('Method Not Allowed');
+    const res = await POST(buildRequest('POST'));
+    expect(res.status).toBe(200);
   });
 
   it('should run both ticks in parallel and return merged result', async () => {
@@ -67,7 +80,7 @@ describe('API /api/story/voice-vectorise', () => {
     mockedRunVectoriseTick.mockResolvedValue(vectoriseTickResult);
     mockedBuildVoiceVectoriseResult.mockResolvedValue(mergedResult);
 
-    const res = await GET();
+    const res = await GET(buildRequest('GET'));
 
     expect(mockedRunTranscribeTick).toHaveBeenCalled();
     expect(mockedRunVectoriseTick).toHaveBeenCalled();
@@ -80,14 +93,14 @@ describe('API /api/story/voice-vectorise', () => {
     const json = await res.json();
     expect(json).toEqual({
       status: 'Voice vectorise executed',
-      result: mergedResult,
+      result: { ...mergedResult, retriggered: true },
     });
   });
 
   it('should handle tick errors gracefully', async () => {
     mockedRunTranscribeTick.mockRejectedValue(new Error('Something failed'));
 
-    const res = await GET();
+    const res = await GET(buildRequest('GET'));
 
     expect(res.status).toBe(500);
   });

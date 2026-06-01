@@ -22,4 +22,5 @@ export interface PageVectoriseResult {
   vectorised: number;
   failed: number;
   outstanding: number;
+  hasMore: boolean;
 }

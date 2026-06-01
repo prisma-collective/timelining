@@ -42,6 +42,7 @@ export interface VoiceVectoriseResult {
   failed: number;
   outstanding: number;
   pipeline: VoicePipelineCounts;
+  hasMore: boolean;
 }
 
 export interface PickVoicesOptions {

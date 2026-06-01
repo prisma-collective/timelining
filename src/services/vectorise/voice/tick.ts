@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
+import { parseNonNegativeEnvInt } from '@/lib/internal-continuation';
 import { VECTORISE_BATCH_SIZE } from '../shared/types';
 import { hasTimeRemaining } from '../shared/tickUtils';
 import type { ScheduleHint } from '../shared/types';
@@ -15,6 +16,23 @@ import type {
   VectoriseTickResult,
   VoiceVectoriseResult,
 } from './types';
+
+const DEFAULT_VOICE_TRANSCRIBE_STAGE_RESERVE_MS = 3000;
+const DEFAULT_VOICE_VECTORISE_STAGE_RESERVE_MS = 2000;
+
+function getVoiceTranscribeStageReserveMs(): number {
+  return parseNonNegativeEnvInt(
+    'VOICE_TRANSCRIBE_STAGE_RESERVE_MS',
+    DEFAULT_VOICE_TRANSCRIBE_STAGE_RESERVE_MS
+  );
+}
+
+function getVoiceVectoriseStageReserveMs(): number {
+  return parseNonNegativeEnvInt(
+    'VOICE_VECTORISE_STAGE_RESERVE_MS',
+    DEFAULT_VOICE_VECTORISE_STAGE_RESERVE_MS
+  );
+}
 
 export async function runTranscribeTick(): Promise<TranscribeTickResult> {
   const counts = { transcribed: 0, skipped_long: 0, failed: 0 };
@@ -32,7 +50,8 @@ export async function runTranscribeTick(): Promise<TranscribeTickResult> {
     }
 
     const startTime = Date.now();
-    if (!hasTimeRemaining(startTime)) {
+    const stageReserveMs = getVoiceTranscribeStageReserveMs();
+    if (!hasTimeRemaining(startTime, stageReserveMs)) {
       return { status: 'success', ...counts };
     }
 
@@ -66,8 +85,9 @@ export async function runVectoriseTick(): Promise<VectoriseTickResult> {
     }
 
     const startTime = Date.now();
+    const stageReserveMs = getVoiceVectoriseStageReserveMs();
     for (const voiceId of transcribedIds) {
-      if (!hasTimeRemaining(startTime)) break;
+      if (!hasTimeRemaining(startTime, stageReserveMs)) break;
 
       const result = await vectoriseStage(voiceId);
       if (result === 'vectorised') counts.vectorised++;
@@ -107,6 +127,7 @@ export async function buildVoiceVectoriseResult(
       failed,
       outstanding: 0,
       pipeline: emptyPipeline,
+      hasMore: false,
     };
   }
 
@@ -128,6 +149,7 @@ export async function buildVoiceVectoriseResult(
       failed,
       outstanding,
       pipeline: pipelineCounts,
+      hasMore: outstanding > 0,
     };
   }
 
@@ -149,6 +171,7 @@ export async function buildVoiceVectoriseResult(
     failed,
     outstanding,
     pipeline: pipelineCounts,
+    hasMore: outstanding > 0,
   };
 }
 

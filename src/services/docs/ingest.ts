@@ -5,13 +5,22 @@ import { fetchDocsSnapshot } from './client';
 import { isDocsChecksumCurrent } from './pageVerify';
 import {
   getDocsPageChecksums,
-  syncDocsPageFromSnapshot,
+  syncDocsPagesFromSnapshotBatch,
   writeDocsIngestRun,
 } from './pageService';
+import { initDriver } from '@/lib/db/neo4j';
 
 export interface RunDocsIngestOptions {
   cursor?: number;
   batchSize?: number;
+}
+
+interface IngestBatchPlan {
+  batch: Awaited<ReturnType<typeof fetchDocsSnapshot>>;
+  start: number;
+  end: number;
+  batchSize: number;
+  totalPages: number;
 }
 
 const DEFAULT_INGEST_BATCH_SIZE = 20;
@@ -29,12 +38,39 @@ function parseBatchSize(batchSize?: number): number {
   return DEFAULT_INGEST_BATCH_SIZE;
 }
 
-export async function runDocsIngest(options: RunDocsIngestOptions = {}): Promise<DocsIngestResult> {
-  const emptyStats: DocsIngestStats = {
+function planIngestBatch(
+  pages: Awaited<ReturnType<typeof fetchDocsSnapshot>>,
+  options: RunDocsIngestOptions
+): IngestBatchPlan {
+  const sortedPages = [...pages].sort((a, b) => a.slug.localeCompare(b.slug));
+  const batchSize = parseBatchSize(options.batchSize);
+  const totalPages = sortedPages.length;
+  const safeCursor =
+    typeof options.cursor === 'number' && Number.isFinite(options.cursor) && options.cursor > 0
+      ? Math.floor(options.cursor)
+      : 0;
+  const start = Math.min(safeCursor, totalPages);
+  const end = Math.min(start + batchSize, totalPages);
+
+  return {
+    batch: sortedPages.slice(start, end),
+    start,
+    end,
+    batchSize,
+    totalPages,
+  };
+}
+
+function createEmptyStats(): DocsIngestStats {
+  return {
     pages_checked: 0,
     pages_updated: 0,
     pages_created: 0,
   };
+}
+
+export async function runDocsIngest(options: RunDocsIngestOptions = {}): Promise<DocsIngestResult> {
+  const emptyStats = createEmptyStats();
 
   const neo4jReady = await isNeo4jAvailable();
   if (!neo4jReady) {
@@ -47,16 +83,8 @@ export async function runDocsIngest(options: RunDocsIngestOptions = {}): Promise
   }
 
   try {
-    const pages = (await fetchDocsSnapshot()).sort((a, b) => a.slug.localeCompare(b.slug));
-    const batchSize = parseBatchSize(options.batchSize);
-    const totalPages = pages.length;
-    const safeCursor =
-      typeof options.cursor === 'number' && Number.isFinite(options.cursor) && options.cursor > 0
-        ? Math.floor(options.cursor)
-        : 0;
-    const start = Math.min(safeCursor, totalPages);
-    const end = Math.min(start + batchSize, totalPages);
-    const batch = pages.slice(start, end);
+    const batchPlan = planIngestBatch(await fetchDocsSnapshot(), options);
+    const { batch, batchSize, end, start, totalPages } = batchPlan;
 
     const stats: DocsIngestStats = {
       pages_checked: batch.length,
@@ -64,39 +92,57 @@ export async function runDocsIngest(options: RunDocsIngestOptions = {}): Promise
       pages_created: 0,
     };
 
-    const existingChecksums = await getDocsPageChecksums(batch.map((page) => page.slug));
+    const driver = await initDriver();
+    const session = driver.session({ database: 'neo4j' });
 
-    for (const page of batch) {
-      const existingChecksum = existingChecksums.get(page.slug) ?? null;
+    try {
+      const existingChecksums = await getDocsPageChecksums(
+        batch.map((page) => page.slug),
+        session
+      );
+      const pagesToSync = [];
 
-      if (isDocsChecksumCurrent(existingChecksum, page.checksum)) {
-        continue;
+      for (const page of batch) {
+        const existingChecksum = existingChecksums.get(page.slug) ?? null;
+
+        if (isDocsChecksumCurrent(existingChecksum, page.checksum)) {
+          continue;
+        }
+
+        const isNew = existingChecksum === null;
+        pagesToSync.push(page);
+
+        if (isNew) {
+          stats.pages_created += 1;
+        } else {
+          stats.pages_updated += 1;
+        }
       }
 
-      const isNew = existingChecksum === null;
-      await syncDocsPageFromSnapshot(page);
+      await syncDocsPagesFromSnapshotBatch(pagesToSync, session);
+      const ingestRunId = await writeDocsIngestRun(stats, session);
+      logger.info('Docs ingest complete', {
+        stats,
+        ingestRunId,
+        batchSize,
+        cursor: start,
+        pagesSynced: pagesToSync.length,
+      });
 
-      if (isNew) {
-        stats.pages_created += 1;
-      } else {
-        stats.pages_updated += 1;
-      }
+      const hasMore = end < totalPages;
+
+      return {
+        status: 'success',
+        stats,
+        ingestRunId,
+        hasMore,
+        nextCursor: hasMore ? end : undefined,
+        totalPages,
+        processedPages: batch.length,
+      };
+    } finally {
+      await session.close();
     }
-
-    const ingestRunId = await writeDocsIngestRun(stats);
-    logger.info('Docs ingest complete', { stats, ingestRunId });
-
-    const hasMore = end < totalPages;
-
-    return {
-      status: 'success',
-      stats,
-      ingestRunId,
-      hasMore,
-      nextCursor: hasMore ? end : undefined,
-      totalPages,
-      processedPages: batch.length,
-    };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     logger.error('Docs ingest failed', { error: message });

@@ -7,7 +7,7 @@ import type {
   DocsPageViewEvent,
   PageSnapshotEntry,
 } from '@/lib/db/models/page';
-import type { Transaction } from 'neo4j-driver';
+import type { Session, Transaction } from 'neo4j-driver';
 
 const DOCS_SOURCE = 'docs';
 
@@ -36,15 +36,15 @@ export async function getDocsPageChecksum(slug: string): Promise<string | null> 
 }
 
 export async function getDocsPageChecksums(
-  slugs: string[]
+  slugs: string[],
+  existingSession?: Session
 ): Promise<Map<string, string | null>> {
   const checksums = new Map<string, string | null>();
   if (slugs.length === 0) {
     return checksums;
   }
 
-  const driver = await initDriver();
-  const session = driver.session({ database: 'neo4j' });
+  const session = existingSession ?? (await initDriver()).session({ database: 'neo4j' });
 
   try {
     const result = await session.run(
@@ -64,7 +64,9 @@ export async function getDocsPageChecksums(
 
     return checksums;
   } finally {
-    await session.close();
+    if (!existingSession) {
+      await session.close();
+    }
   }
 }
 
@@ -133,8 +135,7 @@ async function upsertDocsUnresolvedAuthorsInTx(
 
 /** Upsert page metadata, commits, and authors in one transaction. */
 export async function syncDocsPageFromSnapshot(entry: PageSnapshotEntry): Promise<void> {
-  const driver = await initDriver();
-  const session = driver.session({ database: 'neo4j' });
+  const session = (await initDriver()).session({ database: 'neo4j' });
 
   try {
     await session.writeTransaction(async (tx) => {
@@ -153,10 +154,32 @@ export async function syncDocsPageFromSnapshot(entry: PageSnapshotEntry): Promis
   }
 }
 
-export async function writeDocsIngestRun(stats: DocsIngestStats): Promise<string> {
+export async function syncDocsPagesFromSnapshotBatch(
+  entries: PageSnapshotEntry[],
+  session: Session
+): Promise<void> {
+  if (entries.length === 0) {
+    return;
+  }
+
+  await session.writeTransaction(async (tx) => {
+    for (const entry of entries) {
+      await upsertDocsPageInTx(tx, {
+        slug: entry.slug,
+        title: entry.title,
+        checksum: entry.checksum,
+        created_at: entry.created_at,
+        last_modified: entry.last_modified,
+      });
+      await upsertDocsCommitsInTx(tx, entry.slug, entry.commit_history);
+      await upsertDocsUnresolvedAuthorsInTx(tx, entry.slug, entry.authors);
+    }
+  });
+}
+
+export async function writeDocsIngestRun(stats: DocsIngestStats, existingSession?: Session): Promise<string> {
   const id = crypto.randomUUID();
-  const driver = await initDriver();
-  const session = driver.session({ database: 'neo4j' });
+  const session = existingSession ?? (await initDriver()).session({ database: 'neo4j' });
 
   try {
     await session.run(
@@ -178,7 +201,9 @@ export async function writeDocsIngestRun(stats: DocsIngestStats): Promise<string
     );
     return id;
   } finally {
-    await session.close();
+    if (!existingSession) {
+      await session.close();
+    }
   }
 }
 
