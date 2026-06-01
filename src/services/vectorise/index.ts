@@ -23,5 +23,6 @@ export type {
 export {
   EXECUTION_TIMEOUT_MS,
   VECTORISE_BATCH_SIZE,
+  PAGE_VECTORISE_BATCH_SIZE,
 } from './shared/types';
 export type { VectoriseStageResult, ScheduleHint } from './shared/types';

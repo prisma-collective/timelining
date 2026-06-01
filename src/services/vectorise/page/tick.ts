@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
 import { parseNonNegativeEnvInt } from '@/lib/internal-continuation';
-import { VECTORISE_BATCH_SIZE } from '../shared/types';
+import { PAGE_VECTORISE_BATCH_SIZE } from '../shared/types';
 import type { ScheduleHint } from '../shared/types';
 import { hasTimeRemaining } from '../shared/tickUtils';
 import { countPagesNeedingVectorisation, pickPagesNeedingVectorisation } from './neo4j';
@@ -27,7 +27,7 @@ export async function runPageVectoriseTick(): Promise<PageVectoriseTickResult> {
   }
 
   try {
-    const slugs = await pickPagesNeedingVectorisation(VECTORISE_BATCH_SIZE);
+    const slugs = await pickPagesNeedingVectorisation(PAGE_VECTORISE_BATCH_SIZE);
     if (slugs.length === 0) {
       return { status: 'success', ...counts };
     }
