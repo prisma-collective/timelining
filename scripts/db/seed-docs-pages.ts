@@ -1,10 +1,9 @@
-import dotenv from 'dotenv';
-import path from 'path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { resetDocsSnapshotCache } from '../src/services/docs/snapshotCache';
+import { resetDocsSnapshotCache } from '../../src/services/docs/snapshotCache';
+import { loadDbEnv } from './env';
 
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
+loadDbEnv();
 
 type Phase = 'ingest' | 'vectorise' | 'both';
 
@@ -15,8 +14,8 @@ function icon(result: string): string {
 }
 
 async function runIngestPhase(batchSize: number): Promise<number> {
-  const { runDocsIngestUntilComplete } = await import('../src/services/docs/ingest');
-  const { initDriver } = await import('../src/lib/db/neo4j');
+  const { runDocsIngestUntilComplete } = await import('../../src/services/docs/ingest');
+  const { initDriver } = await import('../../src/lib/db/neo4j');
 
   await initDriver();
   console.log(`\n=== Docs ingest (batch size ${batchSize}) ===\n`);
@@ -38,8 +37,8 @@ async function runIngestPhase(batchSize: number): Promise<number> {
 }
 
 async function runVectorisePhase(): Promise<number> {
-  const { runAllPagesVectorisation } = await import('../src/services/vectorise/page/runAll');
-  const { initDriver } = await import('../src/lib/db/neo4j');
+  const { runAllPagesVectorisation } = await import('../../src/services/vectorise/page/runAll');
+  const { initDriver } = await import('../../src/lib/db/neo4j');
 
   await initDriver();
   console.log('\n=== Page vectorise (all pending) ===\n');
@@ -62,7 +61,7 @@ async function runVectorisePhase(): Promise<number> {
 }
 
 async function runVerifyPhase(): Promise<number> {
-  const { runDocsPageVerification } = await import('../src/services/docs/pageVerify');
+  const { runDocsPageVerification } = await import('../../src/services/docs/pageVerify');
 
   console.log('\n=== Verification ===\n');
   const report = await runDocsPageVerification();
@@ -93,7 +92,7 @@ async function main(): Promise<void> {
     .option('verify', {
       type: 'boolean',
       default: true,
-      describe: 'Run verify-page-ingest summary after phases',
+      describe: 'Run db:check:page-ingest summary after phases',
     })
     .help()
     .parse();
@@ -132,7 +131,7 @@ async function main(): Promise<void> {
 }
 
 async function closeDriverAndExit(code: number): Promise<void> {
-  const { closeDriver } = await import('../src/lib/db/neo4j');
+  const { closeDriver } = await import('../../src/lib/db/neo4j');
   await closeDriver();
   process.exit(code);
 }
@@ -141,7 +140,7 @@ main().catch(async (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error('Seed failed:', message);
   try {
-    const { closeDriver } = await import('../src/lib/db/neo4j');
+    const { closeDriver } = await import('../../src/lib/db/neo4j');
     await closeDriver();
   } catch {
     // ignore

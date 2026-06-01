@@ -87,7 +87,7 @@ export async function upsertPageChunks(slug: string, chunks: PageChunkInput[]): 
       for (const chunk of chunks) {
         await tx.run(
           `
-          MERGE (c:PageChunk { id: $id })
+          MERGE (c:PageChunk:IndexedChunk { id: $id })
           SET c.content = $content,
               c.embedding = $embedding,
               c.chunk_index = $chunk_index,

@@ -1,8 +1,7 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import type { PageVerifyLine, PageVerifyReport } from '../src/services/docs/pageVerify';
+import type { PageVerifyLine, PageVerifyReport } from '../../src/services/docs/pageVerify';
+import { loadDbEnv } from './env';
 
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
+loadDbEnv();
 
 function statusIcon(line: PageVerifyLine): string {
   if (line.status === 'ok') return '✓';
@@ -64,7 +63,7 @@ function printReport(report: PageVerifyReport): void {
 }
 
 async function main(): Promise<void> {
-  const { runDocsPageVerification } = await import('../src/services/docs/pageVerify');
+  const { runDocsPageVerification } = await import('../../src/services/docs/pageVerify');
   const report = await runDocsPageVerification();
   printReport(report);
 

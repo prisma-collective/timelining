@@ -107,7 +107,7 @@ export async function markVectorised(
         DELETE r, old
         WITH v
         UNWIND range(0, size($chunks) - 1) AS i
-        CREATE (c:VoiceChunk {
+        CREATE (c:VoiceChunk:IndexedChunk {
           id: randomUUID(),
           chunk_text: $chunks[i],
           embedding: $embeddings[i]

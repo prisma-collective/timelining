@@ -540,16 +540,16 @@ Ingest runs every 6 hours. Page vectorisation runs every 15 minutes and batch-pr
 
 **Status: DONE.**
 
-A standalone script in timelining at `scripts/verify-page-ingest.ts`, runnable directly via `npx tsx`. Uses the same snapshot and Neo4j query logic as the ingest and vectorise pipelines so verification reflects exactly what those endpoints check.
+A standalone script in timelining at `scripts/db/check-page-ingest.ts` (`pnpm db:check:page-ingest`). Uses the same snapshot and Neo4j query logic as the ingest and vectorise pipelines so verification reflects exactly what those endpoints check.
 
 ### Usage
 
 ```bash
 # before ingest — shows what is missing
-npx tsx scripts/verify-page-ingest.ts
+pnpm db:check:page-ingest
 
 # after full pipeline — should show full coverage
-npx tsx scripts/verify-page-ingest.ts
+pnpm db:check:page-ingest
 ```
 
 Requires the same env vars as timelining (`DOCS_APP_URL`, `PRIVATE_API_TOKEN`, `NEO4J_URI`, `NEO4J_PASSWORD`). Reads from `.env.local` if present.
@@ -642,6 +642,6 @@ curl -H "Authorization: Bearer $PRIVATE_API_TOKEN" \
 - Participant resolution — `UnresolvedAuthor` nodes are the end state here; resolution is a separate workstream
 - Registration app changes
 - Retrieval / Graph RAG query changes
-- `:PageChunk` Neo4j vector index (deferred — write path only for now; voice uses `:VoiceChunk` index via `scripts/createVectorIndex.ts`)
+- Unified chunk vector index — **DONE** (`chunk-vector-index` on `:IndexedChunk`, shared by `:VoiceChunk` and `:PageChunk`). Scripts under `scripts/db/`: `pnpm db:vector-index:backfill`, `pnpm db:vector-index:create`, `pnpm db:vector-index:recreate` (drop legacy + unified, recreate), `pnpm db:vector-index:check`
 - Federation across hub instances — `source: "docs"` and `IngestRun` nodes are the forward-compatible hooks
 - DID-based identity
