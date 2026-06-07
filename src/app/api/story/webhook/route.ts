@@ -3,6 +3,12 @@ import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { setMessageReaction } from '@/lib/telegram';
 import { handleError } from '@/lib/utils';
+import {
+  forwardToOrganisingWebhook,
+  organisingDomainForTopic,
+  resolveRedisQueueKey,
+  topicFromWebhookPayload,
+} from '@/services/webhook/organisingRoute';
 
 export async function POST(request: NextRequest) {
   if (request.method !== 'POST') {
@@ -17,16 +23,25 @@ export async function POST(request: NextRequest) {
     const chatId = data.message?.chat?.id;
     const messageId = data.message?.message_id;
 
-    const topicName = data.message?.reply_to_message?.forum_topic_created?.name;
+    const topicName = topicFromWebhookPayload(data);
+    const organisingDomain = organisingDomainForTopic(topicName);
 
-    if ((data.message?.chat?.type === 'private') || (topicName?.includes('_bot') || topicName?.includes('prisma_events_storying'))) {
-      await redis.lpush('telegram_messages', JSON.stringify(data));
-      logger.info(`Message queued. chat ID: ${chatId}, message ID: ${messageId} `);
-  
-      // Send silent reply
+    if (
+      data.message?.chat?.type === 'private' ||
+      topicName?.includes('_bot') ||
+      topicName?.includes('prisma_events_storying')
+    ) {
+      if (organisingDomain) {
+        await forwardToOrganisingWebhook(organisingDomain, data);
+      }
+
+      const queueKey = resolveRedisQueueKey(topicName);
+      await redis.lpush(queueKey, JSON.stringify(data));
+      logger.info(`Message queued. chat ID: ${chatId}, message ID: ${messageId}, queue: ${queueKey}`);
+
       await setMessageReaction(chatId, messageId);
       logger.info('⚡ Message reacted to.');
-  
+
       return NextResponse.json({ status: 'ok' });
     } else {
       logger.info('Message ignored.');

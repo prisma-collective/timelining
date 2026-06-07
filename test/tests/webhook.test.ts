@@ -4,11 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 // Mock Redis client
 jest.mock("@upstash/redis", () => ({
   Redis: jest.fn().mockImplementation(() => ({
-    lpush: jest.fn().mockResolvedValue(1), // Simulate successful Redis push
+    lpush: jest.fn().mockResolvedValue(1),
   })),
 }));
 
-// Mock Axios for Telegram API
+// Mock Axios for Telegram API and organising webhook forwarding
 jest.mock("axios", () => ({
   create: jest.fn(() => ({
     post: jest.fn().mockResolvedValue({ data: { ok: true } })
