@@ -13,65 +13,6 @@ function cypherParams(ctx: ResolveContext, result: SchemaResolveResult) {
   };
 }
 
-export async function persistRoleSnapshot(
-  ctx: ResolveContext,
-  result: SchemaResolveResult
-): Promise<void> {
-  const driver = await initDriver();
-  const session = driver.session({ database: 'neo4j' });
-
-  try {
-    await session.writeTransaction(async (tx) => {
-      await tx.run(
-        `
-        MATCH (e:Entry { id: $entryId })
-        OPTIONAL MATCH (snap:RoleSnapshot)-[:FOR_ENTRY]->(e)
-        DETACH DELETE snap
-        `,
-        { entryId: ctx.entryId }
-      );
-
-      const roleResult = await tx.run(
-        `
-        MATCH (e:Entry { id: $entryId })-[:SENT_BY]->(p:Participant)
-        MERGE (p)-[:HAS_ROLE]->(r:Role { participantHandle: p.handle })
-        ON CREATE SET
-          r.id = randomUUID(),
-          r.createdAt = datetime(),
-          r.updatedAt = datetime()
-        ON MATCH SET r.updatedAt = datetime()
-        CREATE (snap:RoleSnapshot {
-          id: randomUUID(),
-          entryId: $entryId,
-          recordedAt: datetime(),
-          schemaChannel: $schemaChannel,
-          schemaCommitSha: $schemaCommitSha,
-          schemaContent: $schemaContent,
-          extractedFields: $extractedFieldsJson,
-          sourceKind: $sourceKind
-        })
-        MERGE (r)-[:HAS_SNAPSHOT]->(snap)
-        MERGE (r)-[:EVOLVED_FROM]->(e)
-        MERGE (snap)-[:FOR_ENTRY]->(e)
-        RETURN r.id AS roleId, snap.id AS snapshotId
-        `,
-        cypherParams(ctx, result)
-      );
-
-      logger.info('Persisted Role snapshot', {
-        entryId: ctx.entryId,
-        handler: ctx.handler,
-        roleId: roleResult.records[0]?.get('roleId'),
-        snapshotId: roleResult.records[0]?.get('snapshotId'),
-        schemaChannel: result.schemaChannel,
-        schemaCommitSha: result.schemaCommitSha,
-      });
-    });
-  } finally {
-    await session.close();
-  }
-}
-
 export async function persistDecision(
   ctx: ResolveContext,
   result: SchemaResolveResult

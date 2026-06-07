@@ -1,7 +1,7 @@
 import type { ResolveStatus } from '@/lib/db/models/entry';
 import type { ScheduleHint } from '@/services/vectorise/shared/types';
 
-export type ResolveHandlerName = 'enrolment' | 'deciding';
+export type ResolveHandlerName = 'deciding';
 
 export interface ResolveContext {
   entryId: string;

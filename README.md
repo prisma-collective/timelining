@@ -173,7 +173,7 @@ This ensures AI helps illuminate patterns, but the final interpretation remains 
 
 ## Entry resolve (cron `/api/story/resolve`)
 
-Coordinator (`tick` + `dispatch`) marks entries `attempted` and fire-and-forgets to `/api/story/resolve/entry`. Enrolment and deciding load protocol schemas from `GET {DOCS_APP_URL}/api/protocol/{channel}` (`channel` = `enrolment` or `deciding`), extract fields via OpenAI, and persist `RoleSnapshot` or `Decision` nodes.
+Coordinator (`tick` + `dispatch`) marks entries `attempted` and fire-and-forgets to `/api/story/resolve/entry`. Deciding loads protocol schemas from `GET {DOCS_APP_URL}/api/protocol/deciding`, extracts fields via OpenAI, and persists `Decision` nodes. Enrolment resolve (Role / RoleSnapshot) lives in the enrol app.
 
 Module layout: `registry.ts` (topics/handlers), `neo4j.ts` (queries), `entry.ts` (orchestration), `schema/` (extract + persist).
 

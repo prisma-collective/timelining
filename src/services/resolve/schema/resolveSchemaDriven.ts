@@ -1,8 +1,8 @@
 import { fetchProtocolSchema } from '@/services/docs/client';
-import type { ResolveContext, ResolveHandlerName, SchemaResolveResult } from '../types';
+import type { ResolveContext, SchemaResolveResult } from '../types';
 import { getEntrySourceText } from './entryText';
 import { extractFieldsFromText } from './extract';
-import { persistDecision, persistRoleSnapshot } from './persist';
+import { persistDecision } from './persist';
 
 async function extractFromEntry(ctx: ResolveContext): Promise<SchemaResolveResult> {
   const channel = ctx.handler;
@@ -22,13 +22,8 @@ async function extractFromEntry(ctx: ResolveContext): Promise<SchemaResolveResul
   };
 }
 
-/** Load protocol schema, extract fields from entry text, persist Role or Decision. */
+/** Load protocol schema, extract fields from entry text, persist Decision. */
 export async function resolveSchemaDrivenEntry(ctx: ResolveContext): Promise<void> {
   const result = await extractFromEntry(ctx);
-
-  if (ctx.handler === 'enrolment') {
-    await persistRoleSnapshot(ctx, result);
-  } else {
-    await persistDecision(ctx, result);
-  }
+  await persistDecision(ctx, result);
 }

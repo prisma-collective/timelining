@@ -1,8 +1,7 @@
 import type { ResolveHandlerName } from './types';
 
-/** Telegram forum topic name → resolve handler (schema-driven channels only). */
+/** Telegram forum topic name → resolve handler (deciding channel only). */
 export const RESOLVE_TOPIC_HANDLERS = {
-  _botEnrolment: 'enrolment',
   _botDecidiendo: 'deciding',
 } as const satisfies Record<string, ResolveHandlerName>;
 

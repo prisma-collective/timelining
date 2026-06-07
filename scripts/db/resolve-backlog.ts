@@ -27,8 +27,7 @@ const argv = yargs(rawArgv)
   })
   .option('reprocess', {
     type: 'string',
-    describe:
-      'Re-resolve entries with existing output nodes (decision | deciding | enrolment | role | rolesnapshot)',
+    describe: 'Re-resolve entries with existing output nodes (decision | deciding)',
   })
   .help()
   .parseSync();
@@ -58,29 +57,22 @@ function reprocessTypeFromRawArgv(args: string[]): string | undefined {
   return undefined;
 }
 
-type ReprocessNodeType = 'decision' | 'enrolment';
+type ReprocessNodeType = 'decision';
 
 const REPROCESS_ALIASES: Record<string, ReprocessNodeType> = {
   decision: 'decision',
   decisions: 'decision',
   deciding: 'decision',
-  enrolment: 'enrolment',
-  role: 'enrolment',
-  rolesnapshot: 'enrolment',
-  'role-snapshot': 'enrolment',
 };
 
 const REPROCESS_NODE_LABEL: Record<ReprocessNodeType, string> = {
   decision: 'Decision',
-  enrolment: 'RoleSnapshot',
 };
 
 function parseReprocessType(raw: string): ReprocessNodeType {
   const mapped = REPROCESS_ALIASES[raw.trim().toLowerCase()];
   if (!mapped) {
-    throw new Error(
-      `Unknown --reprocess type "${raw}". Use: decision, deciding, enrolment, role, rolesnapshot`
-    );
+    throw new Error(`Unknown --reprocess type "${raw}". Use: decision, deciding`);
   }
   return mapped;
 }
@@ -218,16 +210,11 @@ async function fetchBacklogEntries(options: FetchBacklogOptions = {}): Promise<B
     const limitClause = limit != null ? 'LIMIT $limit' : '';
 
     if (reprocessType) {
-      const handler = reprocessType === 'decision' ? 'deciding' : 'enrolment';
-      const topics = topicsForHandler(handler);
-      const matchClause =
-        reprocessType === 'decision'
-          ? 'MATCH (e:Entry)-[:RESOLVED_TO]->(:Decision)'
-          : 'MATCH (e:Entry)<-[:FOR_ENTRY]-(:RoleSnapshot)';
+      const topics = topicsForHandler('deciding');
 
       const result = await session.run(
         `
-        ${matchClause}
+        MATCH (e:Entry)-[:RESOLVED_TO]->(:Decision)
         MATCH (e)-[:FROM_CHAT]->(c:TelegramChat)
         WHERE c.topic IN $topics
         OPTIONAL MATCH (e)-[:HAS_VOICE]->(v:Voice)
@@ -344,7 +331,6 @@ function countByHandler<T extends { handler: ResolveHandlerName }>(
   items: T[]
 ): Record<ResolveHandlerName, number> {
   return {
-    enrolment: items.filter((item) => item.handler === 'enrolment').length,
     deciding: items.filter((item) => item.handler === 'deciding').length,
   };
 }
@@ -409,7 +395,6 @@ function printVerboseSummary(
   if (summary.successful.length > 0) {
     const byHandler = countByHandler(summary.successful);
     console.log('\nSuccessful resolves:');
-    console.log(`  enrolment: ${byHandler.enrolment}`);
     console.log(`  deciding:  ${byHandler.deciding}`);
     for (const entry of summary.successful) {
       console.log(`  ✓ ${entry.entryId}  ${entry.handler}  topic=${entry.topic ?? '(none)'}`);

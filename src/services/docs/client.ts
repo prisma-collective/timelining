@@ -53,7 +53,7 @@ export async function fetchDocsPageContent(slug: string): Promise<string | null>
   return res.text();
 }
 
-/** Protocol schema for a resolve channel (enrolment, deciding). */
+/** Protocol schema for a resolve channel (deciding). */
 export async function fetchProtocolSchema(channel: string): Promise<ProtocolSchemaResponse> {
   const docsAppUrl = requireEnv('DOCS_APP_URL').replace(/\/$/, '');
   const token = requireEnv('PRIVATE_API_TOKEN');

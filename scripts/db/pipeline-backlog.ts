@@ -101,7 +101,7 @@ function printVectorise(summary: Pick<PipelineBacklogSummary, 'voice' | 'page' |
 
 function printResolve(summary: PipelineBacklogSummary['resolve']): void {
   console.log('\nStage 3 — Resolve');
-  console.log('  scheduled DB scan → schema extract → Decision / RoleSnapshot nodes');
+  console.log('  scheduled DB scan → schema extract → Decision nodes');
   console.log(`  schema topics: ${RESOLVE_TOPICS.join(', ')}`);
   console.log('────────────────────────────────────────────');
 

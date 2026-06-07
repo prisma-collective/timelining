@@ -68,6 +68,34 @@ export async function markDeferredLong(voiceId: string): Promise<void> {
   }
 }
 
+export async function loadEntryTopicForVoice(
+  voiceId: string
+): Promise<{ entryId: string; topic: string | null } | null> {
+  const driver = await initDriver();
+  const session = driver.session({ database: 'neo4j' });
+
+  try {
+    const result = await session.run(
+      `
+      MATCH (e:Entry)-[:HAS_VOICE]->(v:Voice {id: $voiceId})
+      MATCH (e)-[:FROM_CHAT]->(c:TelegramChat)
+      RETURN e.id AS entryId, c.topic AS topic
+      `,
+      { voiceId }
+    );
+
+    if (result.records.length === 0) return null;
+
+    const record = result.records[0];
+    return {
+      entryId: record.get('entryId') as string,
+      topic: record.get('topic') as string | null,
+    };
+  } finally {
+    await session.close();
+  }
+}
+
 export async function markTranscribed(voiceId: string, transcription: string): Promise<void> {
   const driver = await initDriver();
   const session = driver.session({ database: 'neo4j' });

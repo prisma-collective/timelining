@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { TELEGRAM_MESSAGES_QUEUE } from '@organising-config';
 import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { setMessageReaction } from '@/lib/telegram';
@@ -9,6 +10,8 @@ import {
   resolveRedisQueueKey,
   topicFromWebhookPayload,
 } from '@/services/webhook/organisingRoute';
+
+const ENROLMENT_TOPIC = '_botEnrolment';
 
 export async function POST(request: NextRequest) {
   if (request.method !== 'POST') {
@@ -36,8 +39,14 @@ export async function POST(request: NextRequest) {
       }
 
       const queueKey = resolveRedisQueueKey(topicName);
-      await redis.lpush(queueKey, JSON.stringify(data));
+      const serialized = JSON.stringify(data);
+      await redis.lpush(queueKey, serialized);
       logger.info(`Message queued. chat ID: ${chatId}, message ID: ${messageId}, queue: ${queueKey}`);
+
+      if (topicName === ENROLMENT_TOPIC) {
+        await redis.lpush(TELEGRAM_MESSAGES_QUEUE, serialized);
+        logger.info(`Message also queued for worker ingest. queue: ${TELEGRAM_MESSAGES_QUEUE}`);
+      }
 
       await setMessageReaction(chatId, messageId);
       logger.info('⚡ Message reacted to.');

@@ -47,7 +47,7 @@ describe('API /api/story/resolve/entry', () => {
   it('runs entry resolve for valid request', async () => {
     mockedRunEntryResolve.mockResolvedValue({
       entryId: 'e1',
-      handler: 'enrolment',
+      handler: 'deciding',
       resolveStatus: 'successful',
     });
 

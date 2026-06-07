@@ -6,11 +6,15 @@ import OpenAI from 'openai';
 import { logger } from '@/lib/logger';
 import { MAX_VOICE_DURATION_SEC } from './types';
 import {
+  loadEntryTopicForVoice,
   loadVoiceById,
   markDeferredLong,
   markTranscribed,
   recordStageFailure,
 } from './neo4j';
+import { dispatchEnrolmentResolve } from '@/services/webhook/dispatchEnrolmentResolve';
+
+const ENROLMENT_TOPIC = '_botEnrolment';
 
 function getBotToken(): string {
   const token =
@@ -87,6 +91,12 @@ export async function transcribeStage(voiceId: string): Promise<TranscribeStageR
 
     await markTranscribed(voiceId, transcription);
     logger.info('Voice transcribed', { voiceId });
+
+    const entryRef = await loadEntryTopicForVoice(voiceId);
+    if (entryRef?.topic === ENROLMENT_TOPIC) {
+      dispatchEnrolmentResolve(entryRef.entryId);
+    }
+
     return 'transcribed';
   } catch (error) {
     logger.error('Transcribe stage failed', { voiceId, error });

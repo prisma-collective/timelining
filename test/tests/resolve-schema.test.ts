@@ -30,8 +30,8 @@ beforeEach(() => {
 function buildCtx(overrides: Partial<ResolveContext> = {}): ResolveContext {
   return {
     entryId: 'entry-1',
-    topic: '_botEnrolment',
-    handler: 'enrolment',
+    topic: '_botDecidiendo',
+    handler: 'deciding',
     participantHandle: 'alice',
     ...overrides,
   };
