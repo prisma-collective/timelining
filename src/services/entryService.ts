@@ -67,7 +67,9 @@ export async function createEntry(input: FullEntryInputData): Promise<string> {
           id: randomUUID(),
           updateId: $updateId,
           messageId: $messageId,
-          date: datetime($date)
+          date: datetime($date),
+          resolveStatus: 'pending',
+          resolvedAt: null
         })-[:SENT_BY]->(p)
 
         MERGE (e)-[:FROM_CHAT]->(c)

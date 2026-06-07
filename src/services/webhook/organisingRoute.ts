@@ -4,7 +4,7 @@ import {
   TELEGRAM_MESSAGES_QUEUE,
   organisingQueueKey,
   type OrganisingKey,
-} from '@/config/organising';
+} from '@organising-config';
 import { logger } from '@/lib/logger';
 
 type WebhookPayload = {

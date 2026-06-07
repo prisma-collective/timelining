@@ -10,11 +10,16 @@ export interface TelegramChatNode {
   type: 'private' | 'group' | 'supergroup' | 'channel';
 }
 
+export type ResolveStatus = 'pending' | 'attempted' | 'successful' | 'failed';
+
 export interface EntryNode {
   id: string;
   updateId: number;
   messageId: number;
   date: string;
+  resolveStatus?: ResolveStatus;
+  resolvedAt?: string | null;
+  resolveFailureReason?: string | null;
 }
 
 export interface TextContentNode {

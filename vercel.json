@@ -19,6 +19,10 @@
       {
         "path": "/api/story/page-vectorise",
         "schedule": "*/15 * * * *"
+      },
+      {
+        "path": "/api/story/resolve",
+        "schedule": "*/15 * * * *"
       }
     ]
   }

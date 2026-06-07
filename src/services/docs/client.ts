@@ -1,4 +1,5 @@
 import type { PageSnapshotEntry } from '@/lib/db/models/page';
+import type { ProtocolSchemaResponse } from '@/lib/db/models/protocol';
 import { logger } from '@/lib/logger';
 
 function requireEnv(name: string): string {
@@ -50,4 +51,36 @@ export async function fetchDocsPageContent(slug: string): Promise<string | null>
   }
 
   return res.text();
+}
+
+/** Protocol schema for a resolve channel (enrolment, deciding). */
+export async function fetchProtocolSchema(channel: string): Promise<ProtocolSchemaResponse> {
+  const docsAppUrl = requireEnv('DOCS_APP_URL').replace(/\/$/, '');
+  const token = requireEnv('PRIVATE_API_TOKEN');
+
+  const url = `${docsAppUrl}/api/protocol/${encodeURIComponent(channel)}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 404) {
+    throw new Error(`schema_not_found: ${channel}`);
+  }
+
+  if (!res.ok) {
+    throw new Error(`protocol schema failed for ${channel}: ${res.status}`);
+  }
+
+  const body = (await res.json()) as ProtocolSchemaResponse;
+  if (!body.content?.trim()) {
+    throw new Error(`schema_not_found: ${channel}`);
+  }
+  if (!body.commitSha?.trim()) {
+    throw new Error(`protocol schema missing commitSha for ${channel}`);
+  }
+
+  return {
+    content: body.content,
+    commitSha: body.commitSha,
+  };
 }
