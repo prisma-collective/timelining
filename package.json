@@ -10,7 +10,7 @@
     "test": "pnpm run db:up && pnpm run wait:neo4j && jest && pnpm run db:down",
     "set:webhook": "tsx scripts/setWebhook.ts",
     "get:webhook": "tsx scripts/getWebhook.ts",
-    "triggerWorker": "tsx scripts/triggerWorker.ts",
+    "triggerIngest": "tsx scripts/triggerIngest.ts",
     "db:backlog": "tsx scripts/db/pipeline-backlog.ts",
     "db:backlog:ingest": "tsx scripts/db/pipeline-backlog.ts --stage ingest",
     "db:backlog:vectorise": "tsx scripts/db/pipeline-backlog.ts --stage vectorise",

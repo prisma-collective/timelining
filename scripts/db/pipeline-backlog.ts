@@ -1,6 +1,6 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { RESOLVE_TOPICS } from '../../src/services/resolve/registry';
+import { resolveTopics } from '@organising-config';
 import type {
   PipelineBacklogSummary,
   PipelineStage,
@@ -39,7 +39,7 @@ function statusIcon(hasIssue: boolean): string {
 
 function printIngest(summary: PipelineBacklogSummary['ingest']): void {
   console.log('\nStage 1 — Ingest');
-  console.log('  webhook → Redis queue → worker → Neo4j (entryService)');
+  console.log('  webhook → ingest backlog → ingest cron → Neo4j (entryService)');
   console.log('────────────────────────────────────────────');
 
   if (!summary.available) {
@@ -51,7 +51,7 @@ function printIngest(summary: PipelineBacklogSummary['ingest']): void {
   const icon = statusIcon(summary.queued > 0);
   console.log(`${icon}  Queue ${summary.queueName}: ${summary.queued}`);
   if (summary.queued > 0) {
-    console.log('   Worker: POST /api/story/worker');
+    console.log('   Ingest: POST /api/story/ingest');
   }
 }
 
@@ -101,8 +101,8 @@ function printVectorise(summary: Pick<PipelineBacklogSummary, 'voice' | 'page' |
 
 function printResolve(summary: PipelineBacklogSummary['resolve']): void {
   console.log('\nStage 3 — Resolve');
-  console.log('  scheduled DB scan → schema extract → Decision nodes');
-  console.log(`  schema topics: ${RESOLVE_TOPICS.join(', ')}`);
+  console.log('  post-transcribe dispatch + cron backstop → external organising apps');
+  console.log(`  resolve topics: ${resolveTopics().join(', ')}`);
   console.log('────────────────────────────────────────────');
 
   const { outstanding, schemaTopics, allEntries } = summary;
@@ -170,7 +170,7 @@ async function loadSummary(stage: PipelineStage | 'all'): Promise<PipelineBacklo
   }
 
   const partial: PipelineBacklogSummary = {
-    ingest: { available: false, queueName: 'telegram_messages', queued: 0 },
+    ingest: { available: false, queueName: 'timelining::ingest::backlog', queued: 0 },
     voice: { outstanding: 0, counts: { pending: 0, transcribed: 0, vectorised: 0, failed: 0, deferred_long: 0 } },
     page: { outstanding: 0 },
     docsSync: null,

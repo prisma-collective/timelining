@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TELEGRAM_MESSAGES_QUEUE } from '@organising-config';
+import { INGEST_BACKLOG_QUEUE } from '@organising-config';
 import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { setMessageReaction } from '@/lib/telegram';
@@ -7,18 +7,15 @@ import { handleError } from '@/lib/utils';
 import {
   forwardToOrganisingWebhook,
   organisingDomainForTopic,
-  resolveRedisQueueKey,
   topicFromWebhookPayload,
 } from '@/services/webhook/organisingRoute';
 
-const ENROLMENT_TOPIC = '_botEnrolment';
-
 export async function POST(request: NextRequest) {
   if (request.method !== 'POST') {
-    logger.info(request.method)
+    logger.info(request.method);
     return new NextResponse('Method Not Allowed', { status: 405 });
   }
-  
+
   logger.info('Webhook triggered.');
 
   try {
@@ -38,15 +35,9 @@ export async function POST(request: NextRequest) {
         await forwardToOrganisingWebhook(organisingDomain, data);
       }
 
-      const queueKey = resolveRedisQueueKey(topicName);
       const serialized = JSON.stringify(data);
-      await redis.lpush(queueKey, serialized);
-      logger.info(`Message queued. chat ID: ${chatId}, message ID: ${messageId}, queue: ${queueKey}`);
-
-      if (topicName === ENROLMENT_TOPIC) {
-        await redis.lpush(TELEGRAM_MESSAGES_QUEUE, serialized);
-        logger.info(`Message also queued for worker ingest. queue: ${TELEGRAM_MESSAGES_QUEUE}`);
-      }
+      await redis.lpush(INGEST_BACKLOG_QUEUE, serialized);
+      logger.info(`Message queued for ingest. chat ID: ${chatId}, message ID: ${messageId}, queue: ${INGEST_BACKLOG_QUEUE}`);
 
       await setMessageReaction(chatId, messageId);
       logger.info('⚡ Message reacted to.');

@@ -173,14 +173,17 @@ This ensures AI helps illuminate patterns, but the final interpretation remains 
 
 ## Entry resolve (cron `/api/story/resolve`)
 
-Coordinator (`tick` + `dispatch`) marks entries `attempted` and fire-and-forgets to `/api/story/resolve/entry`. Deciding loads protocol schemas from `GET {DOCS_APP_URL}/api/protocol/deciding`, extracts fields via OpenAI, and persists `Decision` nodes. Enrolment resolve (Role / RoleSnapshot) lives in the enrol app.
+After transcription, timelining dispatches resolve work to external organising apps using routes declared in `organising.config.ts`. The post-transcribe hook runs immediately; the resolve cron is a backstop for any failed dispatches.
 
-Module layout: `registry.ts` (topics/handlers), `neo4j.ts` (queries), `entry.ts` (orchestration), `schema/` (extract + persist).
+| Topic | App | Resolve route |
+|-------|-----|---------------|
+| `_botEnrolment` | register.prisma.events | `/api/webhook/resolve` |
+| `_botDecidir` | enact.prisma.events | `/api/webhook/resolve/decide` |
+| `_botAgendar` | enact.prisma.events | `/api/webhook/resolve/schedule` |
+
+Module layout: `organising.config.ts` (routes), `dispatchOrganisingResolve.ts` (HTTP dispatch), `resolve/neo4j.ts` + `resolve/tick.ts` (backstop cron).
 
 | Variable | Purpose |
 |----------|---------|
-| `DOCS_APP_URL` | Docs app base URL (includes `/api/protocol/{channel}`) |
-| `PRIVATE_API_TOKEN` | Bearer token for docs protocol API and internal worker auth |
-| `TIMELINING_APP_URL` | Base URL for fire-and-forget worker (`/api/story/resolve/entry`) |
-| `OPENAI_API_KEY` | Chat extraction (and voice/page pipelines) |
-| `OPENAI_EXTRACT_MODEL` | Optional; defaults to `gpt-4o-mini` |
+| `PRIVATE_API_TOKEN` | Bearer token for organising resolve dispatch |
+| `OPENAI_API_KEY` | Voice transcription (and page pipelines) |

@@ -18,6 +18,7 @@ const tickResult = {
   status: 'success' as const,
   attempted: 2,
   dispatched: 2,
+  failed: 0,
   skipped: 0,
   entryIds: ['entry-1', 'entry-2'],
 };
@@ -27,13 +28,13 @@ const mergedResult = {
   schedule: '30s' as const,
   attempted: 2,
   dispatched: 2,
+  failed: 1,
   skipped: 0,
   outstanding: 3,
   resolved: 10,
-  failed: 1,
   attemptedInFlight: 2,
   hasMore: true,
-  counts: { pending: 3, attempted: 2, successful: 10, failed: 1 },
+  counts: { unset: 0, pending: 3, attempted: 2, successful: 10, failed: 1 },
 };
 
 function buildRequest(method: 'GET' | 'POST') {

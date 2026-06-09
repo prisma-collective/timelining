@@ -1,3 +1,4 @@
+import { runDocsPageVerification } from '@/services/docs/pageVerify';
 import { initDriver } from '@/lib/db/neo4j';
 import type { ResolveStatus } from '@/lib/db/models/entry';
 import { redis } from '@/lib/redis';
@@ -12,8 +13,7 @@ import {
   countPipelineByStatus,
 } from '@/services/vectorise/voice/neo4j';
 import type { VoicePipelineCounts } from '@/services/vectorise/voice/types';
-
-const TELEGRAM_QUEUE = 'telegram_messages';
+import { INGEST_BACKLOG_QUEUE } from '@organising-config';
 
 export type PipelineStage = 'ingest' | 'vectorise' | 'resolve';
 
@@ -108,10 +108,10 @@ async function countAllEntriesByResolveStatus(): Promise<AllEntryResolveCounts> 
 
 export async function getIngestBacklog(): Promise<IngestBacklog> {
   try {
-    const queued = await redis.llen(TELEGRAM_QUEUE);
-    return { available: true, queueName: TELEGRAM_QUEUE, queued };
+    const queued = await redis.llen(INGEST_BACKLOG_QUEUE);
+    return { available: true, queueName: INGEST_BACKLOG_QUEUE, queued };
   } catch {
-    return { available: false, queueName: TELEGRAM_QUEUE, queued: 0 };
+    return { available: false, queueName: INGEST_BACKLOG_QUEUE, queued: 0 };
   }
 }
 
@@ -133,7 +133,6 @@ export async function getDocsSyncBacklog(): Promise<DocsSyncBacklog | null> {
     return null;
   }
 
-  const { runDocsPageVerification } = await import('@/services/docs/pageVerify');
   const report = await runDocsPageVerification();
   const { summary } = report;
 

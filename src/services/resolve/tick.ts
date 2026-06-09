@@ -1,15 +1,14 @@
 import { logger } from '@/lib/logger';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
 import { parseNonNegativeEnvInt } from '@/lib/internal-continuation';
+import { dispatchOrganisingResolves } from '@/services/webhook/dispatchOrganisingResolve';
 import type { ScheduleHint } from '@/services/vectorise/shared/types';
 import { hasTimeRemaining } from '@/services/vectorise/shared/tickUtils';
 import {
   countEntriesPendingResolve,
   countResolveStatusByStatus,
-  markEntryResolveAttempted,
   pickEntriesPendingResolve,
 } from './neo4j';
-import { dispatchEntryResolves } from './dispatch';
 import type { ResolveEntriesResult, ResolveEntriesTickResult } from './types';
 
 const DEFAULT_RESOLVE_BATCH_SIZE = 5;
@@ -22,6 +21,7 @@ export async function runResolveEntriesTick(): Promise<ResolveEntriesTickResult>
   const entryIds: string[] = [];
   let attempted = 0;
   let dispatched = 0;
+  let failed = 0;
   let skipped = 0;
 
   const neo4jReady = await isNeo4jAvailable();
@@ -32,6 +32,7 @@ export async function runResolveEntriesTick(): Promise<ResolveEntriesTickResult>
       message: 'Neo4j not configured.',
       attempted: 0,
       dispatched: 0,
+      failed: 0,
       skipped: 0,
       entryIds: [],
     };
@@ -43,13 +44,21 @@ export async function runResolveEntriesTick(): Promise<ResolveEntriesTickResult>
 
     if (candidates.length === 0) {
       logger.info('Resolve tick: no pending entries');
-      return { status: 'success', attempted: 0, dispatched: 0, skipped: 0, entryIds: [] };
+      return {
+        status: 'success',
+        attempted: 0,
+        dispatched: 0,
+        failed: 0,
+        skipped: 0,
+        entryIds: [],
+      };
     }
 
     const startTime = Date.now();
+    const toDispatch: Array<{ entryId: string; topic: string }> = [];
 
     for (let i = 0; i < candidates.length; i++) {
-      const entryId = candidates[i];
+      const candidate = candidates[i];
 
       if (!hasTimeRemaining(startTime, 500)) {
         skipped += candidates.length - i;
@@ -61,21 +70,18 @@ export async function runResolveEntriesTick(): Promise<ResolveEntriesTickResult>
         break;
       }
 
-      const marked = await markEntryResolveAttempted(entryId);
-      if (!marked) {
-        skipped++;
-        logger.warn('Resolve tick skipped entry (not pending)', { entryId });
-        continue;
-      }
-
       attempted++;
-      entryIds.push(entryId);
+      entryIds.push(candidate.entryId);
+      toDispatch.push(candidate);
     }
 
-    dispatched = dispatchEntryResolves(entryIds);
+    const batchResult = await dispatchOrganisingResolves(toDispatch);
+    dispatched = batchResult.dispatched;
+    failed = batchResult.failed;
+    skipped += batchResult.skipped;
 
-    logger.info('Resolve tick complete', { attempted, dispatched, skipped, entryIds });
-    return { status: 'success', attempted, dispatched, skipped, entryIds };
+    logger.info('Resolve tick complete', { attempted, dispatched, failed, skipped, entryIds });
+    return { status: 'success', attempted, dispatched, failed, skipped, entryIds };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     logger.error('Resolve tick failed', { error: message });
@@ -84,6 +90,7 @@ export async function runResolveEntriesTick(): Promise<ResolveEntriesTickResult>
       message,
       attempted,
       dispatched,
+      failed,
       skipped,
       entryIds,
     };
@@ -102,10 +109,10 @@ export async function buildResolveEntriesResult(
       schedule: '15min',
       attempted: tick.attempted,
       dispatched: tick.dispatched,
+      failed: tick.failed,
       skipped: tick.skipped,
       outstanding: 0,
       resolved: 0,
-      failed: 0,
       attemptedInFlight: 0,
       hasMore: false,
       counts: emptyCounts,
@@ -126,10 +133,10 @@ export async function buildResolveEntriesResult(
       schedule,
       attempted: tick.attempted,
       dispatched: tick.dispatched,
+      failed: counts.failed,
       skipped: tick.skipped,
       outstanding,
       resolved: counts.successful,
-      failed: counts.failed,
       attemptedInFlight: counts.attempted,
       hasMore: outstanding > 0,
       counts,
@@ -139,6 +146,7 @@ export async function buildResolveEntriesResult(
   logger.info('Resolve result built', {
     attempted: tick.attempted,
     dispatched: tick.dispatched,
+    failed: tick.failed,
     outstanding,
     counts,
   });
@@ -148,10 +156,10 @@ export async function buildResolveEntriesResult(
     schedule,
     attempted: tick.attempted,
     dispatched: tick.dispatched,
+    failed: counts.failed,
     skipped: tick.skipped,
     outstanding,
     resolved: counts.successful,
-    failed: counts.failed,
     attemptedInFlight: counts.attempted,
     hasMore: outstanding > 0,
     counts,

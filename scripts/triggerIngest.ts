@@ -25,12 +25,12 @@ async function getDeploymentUrl(): Promise<string> {
 
 (async () => {
   const baseUrl = await getDeploymentUrl();
-  const fullUrl = `${baseUrl}/api/worker`;
+  const fullUrl = `${baseUrl}/api/story/ingest`;
 
   try {
     await axios.post(fullUrl);
-    console.log("✅ Cron triggered at", fullUrl);
+    console.log("✅ Ingest cron triggered at", fullUrl);
   } catch (err: any) {
-    console.error("❌ Error triggering cron:", err?.message ?? err);
+    console.error("❌ Error triggering ingest:", err?.message ?? err);
   }
 })();

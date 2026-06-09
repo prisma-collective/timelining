@@ -5,7 +5,7 @@
     },
     "crons": [
       {
-        "path": "/api/story/worker",
+        "path": "/api/story/ingest",
         "schedule": "*/30 * * * *"
       },
       {

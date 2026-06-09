@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { INGEST_BACKLOG_QUEUE } from '@organising-config';
 import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
@@ -21,7 +22,7 @@ export async function GET() {
     };
 
     try {
-      queuedMessages = await redis.llen('telegram_messages');
+      queuedMessages = await redis.llen(INGEST_BACKLOG_QUEUE);
     } catch (err) {
       logger.error('Redis check failed', { error: err });
       redisAvailable = false;
@@ -72,7 +73,7 @@ export async function GET() {
         },
       },
       queues: {
-        telegram_messages: queuedMessages,
+        [INGEST_BACKLOG_QUEUE]: queuedMessages,
       },
       voice_pipeline: voicePipeline,
       messages: {
