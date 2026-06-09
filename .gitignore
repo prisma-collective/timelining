@@ -3,4 +3,3 @@
 node_modules
 .env*
 .next
-organising.config.ts

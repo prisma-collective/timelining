@@ -15,7 +15,7 @@ export const ORGANISING_CONFIG = {
     channel: '_botEvaluation',
   },
   enrol: {
-    domain: 'enrol.prisma.events',
+    domain: 'register.prisma.events',
     channel: '_botEnrolment',
   },
   envision: {
