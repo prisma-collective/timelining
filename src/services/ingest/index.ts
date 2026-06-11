@@ -1,5 +1,6 @@
 import { INGEST_BACKLOG_QUEUE } from '@organising-config';
 import { logger } from '../../lib/logger';
+import { parseRedisJson, redisJsonToString } from '../../lib/redis-json';
 import { redis } from '../../lib/redis';
 import { TelegramMessage } from '../../lib/telegram';
 import { pushIngestFailed, popIngestFailed } from '@/services/pipeline/failed-queue';
@@ -76,7 +77,7 @@ export async function runIngest(options: RunIngestOptions = {}): Promise<IngestR
         const failedRecord = await popIngestFailed();
         if (failedRecord) {
           raw = failedRecord.raw;
-          messageData = JSON.parse(failedRecord.raw) as TelegramMessage;
+          messageData = parseRedisJson<TelegramMessage>(failedRecord.raw);
         } else {
           const backlogMessage = await redis.lpop(INGEST_BACKLOG_QUEUE);
           if (!backlogMessage) {
@@ -85,8 +86,8 @@ export async function runIngest(options: RunIngestOptions = {}): Promise<IngestR
             }
             break;
           }
-          raw = backlogMessage as string;
-          messageData = JSON.parse(raw) as TelegramMessage;
+          raw = redisJsonToString(backlogMessage);
+          messageData = parseRedisJson<TelegramMessage>(backlogMessage);
         }
       } else {
         const message = await redis.lpop(INGEST_BACKLOG_QUEUE);
@@ -94,8 +95,8 @@ export async function runIngest(options: RunIngestOptions = {}): Promise<IngestR
           logger.info('No message received from ingest backlog.');
           break;
         }
-        raw = message as string;
-        messageData = JSON.parse(raw) as TelegramMessage;
+        raw = redisJsonToString(message);
+        messageData = parseRedisJson<TelegramMessage>(message);
       }
 
       try {

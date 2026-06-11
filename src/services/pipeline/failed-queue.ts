@@ -3,6 +3,7 @@ import {
   RESOLVE_FAILED_QUEUE,
   TRANSCRIBE_FAILED_QUEUE,
 } from '@organising-config';
+import { parseRedisJson, redisJsonToString } from '@/lib/redis-json';
 import { redis } from '@/lib/redis';
 
 export interface IngestFailedRecord {
@@ -27,12 +28,12 @@ export interface ResolveFailedRecord {
 }
 
 export async function pushIngestFailed(
-  raw: string,
+  raw: string | Record<string, unknown>,
   error: string,
   messageId?: number
 ): Promise<void> {
   const record: IngestFailedRecord = {
-    raw,
+    raw: redisJsonToString(raw),
     failedAt: new Date().toISOString(),
     error,
     ...(messageId != null ? { messageId } : {}),
@@ -45,7 +46,11 @@ export async function popIngestFailed(): Promise<IngestFailedRecord | null> {
   if (!item) {
     return null;
   }
-  return JSON.parse(item as string) as IngestFailedRecord;
+  const record = parseRedisJson<IngestFailedRecord>(item);
+  return {
+    ...record,
+    raw: redisJsonToString(record.raw),
+  };
 }
 
 export async function countIngestFailed(): Promise<number> {
@@ -71,7 +76,7 @@ export async function popTranscribeFailed(): Promise<TranscribeFailedRecord | nu
   if (!item) {
     return null;
   }
-  return JSON.parse(item as string) as TranscribeFailedRecord;
+  return parseRedisJson<TranscribeFailedRecord>(item);
 }
 
 export async function countTranscribeFailed(): Promise<number> {
@@ -97,7 +102,7 @@ export async function popResolveFailed(): Promise<ResolveFailedRecord | null> {
   if (!item) {
     return null;
   }
-  return JSON.parse(item as string) as ResolveFailedRecord;
+  return parseRedisJson<ResolveFailedRecord>(item);
 }
 
 export async function countResolveFailed(): Promise<number> {

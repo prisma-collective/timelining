@@ -3,6 +3,7 @@ import {
   RESOLVE_FAILED_QUEUE,
   TRANSCRIBE_FAILED_QUEUE,
 } from '@organising-config';
+import { parseRedisJson } from '@/lib/redis-json';
 import {
   countIngestFailed,
   popIngestFailed,
@@ -11,7 +12,7 @@ import {
   pushTranscribeFailed,
 } from '@/services/pipeline/failed-queue';
 
-const store: Record<string, string[]> = {
+const store: Record<string, unknown[]> = {
   [INGEST_FAILED_QUEUE]: [],
   [TRANSCRIBE_FAILED_QUEUE]: [],
   [RESOLVE_FAILED_QUEUE]: [],
@@ -19,7 +20,7 @@ const store: Record<string, string[]> = {
 
 jest.mock('@/lib/redis', () => ({
   redis: {
-    lpush: jest.fn(async (key: string, value: string) => {
+    lpush: jest.fn(async (key: string, value: unknown) => {
       store[key].unshift(value);
       return store[key].length;
     }),
@@ -50,6 +51,22 @@ describe('failed-queue', () => {
     expect(await countIngestFailed()).toBe(0);
   });
 
+  it('pops ingest failed records when Upstash returns parsed objects', async () => {
+    store[INGEST_FAILED_QUEUE].push({
+      raw: { message: { message_id: 7 } },
+      failedAt: '2026-06-11T00:00:00.000Z',
+      error: 'neo4j error',
+      messageId: 7,
+    });
+
+    const record = await popIngestFailed();
+    expect(record).toMatchObject({
+      raw: '{"message":{"message_id":7}}',
+      error: 'neo4j error',
+      messageId: 7,
+    });
+  });
+
   it('pushes transcribe and resolve failed records', async () => {
     await pushTranscribeFailed('voice-1', 'whisper failed', 'entry-1');
     await pushResolveFailed('entry-1', '_botAgendar', 'http_502');
@@ -57,12 +74,12 @@ describe('failed-queue', () => {
     const transcribe = await store[TRANSCRIBE_FAILED_QUEUE][0];
     const resolve = await store[RESOLVE_FAILED_QUEUE][0];
 
-    expect(JSON.parse(transcribe)).toMatchObject({
+    expect(parseRedisJson(transcribe)).toMatchObject({
       voiceId: 'voice-1',
       error: 'whisper failed',
       entryId: 'entry-1',
     });
-    expect(JSON.parse(resolve)).toMatchObject({
+    expect(parseRedisJson(resolve)).toMatchObject({
       entryId: 'entry-1',
       topic: '_botAgendar',
       error: 'http_502',
