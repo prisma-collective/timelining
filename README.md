@@ -240,5 +240,6 @@ Resolve backlog observability lives in sibling apps (local scripts or a future p
 
 | Variable | Purpose |
 |----------|---------|
-| `PRIVATE_API_TOKEN` | Bearer token for organising resolve dispatch |
+| `PRIVATE_API_TOKEN` | Bearer token for internal pipeline routes and organising resolve dispatch |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Deployment Protection bypass for chained internal HTTP calls (`x-vercel-protection-bypass`) |
 | `OPENAI_API_KEY` | Voice transcription (and page pipelines) |

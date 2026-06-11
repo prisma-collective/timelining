@@ -30,6 +30,22 @@ export interface DispatchInternalRouteResult {
   error?: string;
 }
 
+/** Headers for server-to-server calls that must pass Vercel Deployment Protection. */
+export function internalDispatchHeaders(): Record<string, string> {
+  const token = requireEnv('PRIVATE_API_TOKEN');
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  if (bypassSecret) {
+    headers['x-vercel-protection-bypass'] = bypassSecret;
+  }
+
+  return headers;
+}
+
 export async function dispatchInternalRoute(
   origin: string,
   path: string,
@@ -37,16 +53,12 @@ export async function dispatchInternalRoute(
 ): Promise<DispatchInternalRouteResult> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const url = `${origin}${normalizedPath}`;
-  const token = requireEnv('PRIVATE_API_TOKEN');
   const timeoutMs = options?.chain ? CHAIN_DISPATCH_TIMEOUT_MS : DEFAULT_DISPATCH_TIMEOUT_MS;
 
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: internalDispatchHeaders(),
       signal: AbortSignal.timeout(timeoutMs),
     });
 

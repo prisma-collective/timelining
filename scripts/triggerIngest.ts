@@ -33,10 +33,14 @@ async function getDeploymentUrl(): Promise<string> {
     process.exit(1);
   }
 
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (bypassSecret) {
+    headers['x-vercel-protection-bypass'] = bypassSecret;
+  }
+
   try {
-    await axios.post(fullUrl, undefined, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await axios.post(fullUrl, undefined, { headers });
     console.log("✅ Ingest cron triggered at", fullUrl);
   } catch (err: any) {
     console.error("❌ Error triggering ingest:", err?.message ?? err);
