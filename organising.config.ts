@@ -1,6 +1,9 @@
 export type OrganisingKey = 'enact' | 'evaluate' | 'enrol' | 'envision';
 
-export interface OrganisingWebhookRoute {
+export type ForwardMode = 'all' | 'replies_only' | 'none';
+
+export interface OrganisingForwardRoute {
+  mode: ForwardMode;
   path: string;
 }
 
@@ -10,7 +13,7 @@ export interface OrganisingResolveRoute {
 
 export interface OrganisingChannel {
   channel: string;
-  webhook?: OrganisingWebhookRoute;
+  forward?: OrganisingForwardRoute;
   resolve?: OrganisingResolveRoute;
 }
 
@@ -29,6 +32,7 @@ export const ORGANISING_CONFIG = {
       },
       schedule: {
         channel: '_botAgendar',
+        forward: { mode: 'replies_only', path: '/api/webhook/resolve/schedule/update' },
         resolve: { path: '/api/webhook/resolve/schedule' },
       },
     },
@@ -46,7 +50,7 @@ export const ORGANISING_CONFIG = {
     channels: {
       enrolment: {
         channel: '_botEnrolment',
-        webhook: { path: '/api/webhook' },
+        forward: { mode: 'all', path: '/api/webhook' },
         resolve: { path: '/api/webhook/resolve' },
       },
     },
@@ -72,7 +76,7 @@ export interface OrganisingChannelSpec {
   channelKey: string;
   domain: string;
   channel: string;
-  webhook?: OrganisingWebhookRoute;
+  forward?: OrganisingForwardRoute;
   resolve?: OrganisingResolveRoute;
 }
 
@@ -85,7 +89,7 @@ export function* allChannelSpecs(): Generator<OrganisingChannelSpec> {
         channelKey,
         domain: app.domain,
         channel: spec.channel,
-        ...(spec.webhook ? { webhook: spec.webhook } : {}),
+        ...(spec.forward ? { forward: spec.forward } : {}),
         ...(spec.resolve ? { resolve: spec.resolve } : {}),
       };
     }
@@ -116,20 +120,32 @@ export function organisingDomainForTopic(topic: string | null | undefined): stri
   return channelSpecForTopic(topic)?.domain ?? null;
 }
 
-export function webhookRouteForTopic(
+export function shouldForwardToSibling(
+  mode: ForwardMode | undefined,
+  isReply: boolean
+): boolean {
+  if (mode === 'all') {
+    return true;
+  }
+  if (mode === 'replies_only') {
+    return isReply;
+  }
+  return false;
+}
+
+export function forwardRouteForTopic(
   topic: string | null | undefined
-): { domain: string; path: string } | null {
+): { domain: string; path: string; mode: ForwardMode } | null {
   const spec = channelSpecForTopic(topic);
-  if (!spec?.webhook) {
+  if (!spec?.forward || spec.forward.mode === 'none') {
     return null;
   }
 
-  return { domain: spec.domain, path: spec.webhook.path };
-}
-
-/** @deprecated Use webhookRouteForTopic instead. */
-export function webhookPathForTopic(topic: string | null | undefined): string | null {
-  return webhookRouteForTopic(topic)?.path ?? null;
+  return {
+    domain: spec.domain,
+    path: spec.forward.path,
+    mode: spec.forward.mode,
+  };
 }
 
 export function resolveRouteForTopic(

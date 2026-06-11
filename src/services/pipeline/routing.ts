@@ -1,4 +1,4 @@
-import { resolveRouteForTopic, webhookRouteForTopic } from '@organising-config';
+import { forwardRouteForTopic, resolveRouteForTopic, shouldForwardToSibling } from '@organising-config';
 import { MAX_VOICE_DURATION_SEC } from '@/services/vectorise/voice/types';
 import type { FullEntryData, FullEntryInputData } from '@/lib/db/models/entry';
 
@@ -8,6 +8,10 @@ export type PipelineAction =
   | { kind: 'trigger-resolve'; entryId: string; topic: string }
   | { kind: 'dispatch-transcribe'; origin: string; voiceId: string }
   | { kind: 'none' };
+
+export interface ReceiptOptions {
+  isReply?: boolean;
+}
 
 function hasTextContent(entryInput: FullEntryInputData): boolean {
   return Boolean(entryInput.textContent?.text?.trim());
@@ -26,21 +30,25 @@ function isDeferredLongVoice(entryInput: FullEntryInputData): boolean {
 export function pipelineActionsForReceipt(
   topic: string | null | undefined,
   origin: string,
-  payload: unknown
+  payload: unknown,
+  options: ReceiptOptions = {}
 ): PipelineAction[] {
+  const isReply = options.isReply ?? false;
   const actions: PipelineAction[] = [];
 
-  const webhookRoute = webhookRouteForTopic(topic);
-  if (webhookRoute) {
+  const forwardRoute = forwardRouteForTopic(topic);
+  if (forwardRoute && shouldForwardToSibling(forwardRoute.mode, isReply)) {
     actions.push({
       kind: 'forward-webhook',
-      domain: webhookRoute.domain,
-      path: webhookRoute.path,
+      domain: forwardRoute.domain,
+      path: forwardRoute.path,
       payload,
     });
   }
 
-  actions.push({ kind: 'dispatch-ingest', origin });
+  if (!isReply) {
+    actions.push({ kind: 'dispatch-ingest', origin });
+  }
 
   return actions;
 }

@@ -21,6 +21,12 @@ type WebhookPayload = {
   message?: WebhookMessage;
 };
 
+/** True when the message replies to another message (not the forum topic stub). */
+export function isUserReplyMessage(payload: WebhookPayload): boolean {
+  const replyTo = payload.message?.reply_to_message;
+  return Boolean(replyTo && !replyTo.forum_topic_created);
+}
+
 function forumTopicCacheKey(chatId: number, threadId: number): string {
   return `${FORUM_TOPIC_CACHE_PREFIX}::${chatId}::${threadId}`;
 }

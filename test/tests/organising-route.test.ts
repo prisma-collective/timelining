@@ -1,17 +1,19 @@
 import {
   buildOrganisingResolveUrl,
   channelSpecForTopic,
+  forwardRouteForTopic,
   INGEST_BACKLOG_QUEUE,
   INGEST_FAILED_QUEUE,
   organisingDomainForTopic,
   organisingKeyForTopic,
   resolveRouteForTopic,
   resolveTopics,
-  webhookRouteForTopic,
+  shouldForwardToSibling,
 } from '@organising-config';
 import {
   forwardToOrganisingWebhook,
   forumTopicNameFromMessage,
+  isUserReplyMessage,
   organisingDomainForTopic as routeDomainForTopic,
   topicFromWebhookPayload,
 } from '@/services/webhook/organisingRoute';
@@ -72,21 +74,36 @@ describe('organising config', () => {
     expect(organisingDomainForTopic('_botDecidiendo')).toBeNull();
   });
 
-  it('returns per-channel webhook routes only where configured', () => {
-    expect(webhookRouteForTopic('_botEnrolment')).toEqual({
+  it('returns per-channel forward routes from config', () => {
+    expect(forwardRouteForTopic('_botEnrolment')).toEqual({
       domain: 'register.prisma.events',
       path: '/api/webhook',
+      mode: 'all',
     });
-    expect(webhookRouteForTopic('_botAgendar')).toBeNull();
-    expect(webhookRouteForTopic('_botDecidir')).toBeNull();
+    expect(forwardRouteForTopic('_botAgendar')).toEqual({
+      domain: 'enact.prisma.events',
+      path: '/api/webhook/resolve/schedule/update',
+      mode: 'replies_only',
+    });
+    expect(forwardRouteForTopic('_botDecidir')).toBeNull();
+    expect(forwardRouteForTopic('_botHotdog')).toBeNull();
   });
 
-  it('exposes full channel specs with webhook and resolve', () => {
+  it('determines forward eligibility by mode', () => {
+    expect(shouldForwardToSibling('all', false)).toBe(true);
+    expect(shouldForwardToSibling('all', true)).toBe(true);
+    expect(shouldForwardToSibling('replies_only', false)).toBe(false);
+    expect(shouldForwardToSibling('replies_only', true)).toBe(true);
+    expect(shouldForwardToSibling('none', false)).toBe(false);
+    expect(shouldForwardToSibling(undefined, false)).toBe(false);
+  });
+
+  it('exposes full channel specs with forward and resolve', () => {
     expect(channelSpecForTopic('_botEnrolment')).toEqual(
       expect.objectContaining({
         key: 'enrol',
         channel: '_botEnrolment',
-        webhook: { path: '/api/webhook' },
+        forward: { mode: 'all', path: '/api/webhook' },
         resolve: { path: '/api/webhook/resolve' },
       })
     );
@@ -157,6 +174,30 @@ describe('organisingRoute', () => {
         },
       })
     ).toBe('_botDecidir');
+  });
+
+  it('detects user replies but not topic-stub replies', () => {
+    expect(
+      isUserReplyMessage({
+        message: {
+          reply_to_message: {
+            message_id: 2,
+            text: 'older message',
+          },
+        },
+      })
+    ).toBe(true);
+
+    expect(
+      isUserReplyMessage({
+        message: {
+          reply_to_message: {
+            message_id: 10,
+            forum_topic_created: { name: '_botEnrolment' },
+          },
+        },
+      })
+    ).toBe(false);
   });
 
   it('returns organising domains via route helper', () => {

@@ -28,7 +28,7 @@ function makeEntry(overrides: Partial<FullEntryData> = {}): FullEntryData {
 }
 
 describe('pipelineActionsForReceipt', () => {
-  it('forwards enrol webhook and dispatches ingest for all messages', () => {
+  it('forwards enrol webhook and dispatches ingest for non-reply messages', () => {
     const actions = pipelineActionsForReceipt('_botEnrolment', origin, { message: {} });
     expect(actions).toEqual([
       {
@@ -41,14 +41,48 @@ describe('pipelineActionsForReceipt', () => {
     ]);
   });
 
-  it('dispatches ingest for agendar without webhook forward', () => {
+  it('forwards enrol webhook without ingest for replies', () => {
+    const actions = pipelineActionsForReceipt('_botEnrolment', origin, { message: {} }, { isReply: true });
+    expect(actions).toEqual([
+      {
+        kind: 'forward-webhook',
+        domain: 'register.prisma.events',
+        path: '/api/webhook',
+        payload: { message: {} },
+      },
+    ]);
+  });
+
+  it('dispatches ingest for agendar without forward on non-replies', () => {
     const actions = pipelineActionsForReceipt('_botAgendar', origin, { message: {} });
     expect(actions).toEqual([{ kind: 'dispatch-ingest', origin }]);
   });
 
-  it('dispatches ingest for all channels including decidir', () => {
+  it('forwards schedule replies to enact update endpoint', () => {
+    const actions = pipelineActionsForReceipt('_botAgendar', origin, { message: {} }, { isReply: true });
+    expect(actions).toEqual([
+      {
+        kind: 'forward-webhook',
+        domain: 'enact.prisma.events',
+        path: '/api/webhook/resolve/schedule/update',
+        payload: { message: {} },
+      },
+    ]);
+  });
+
+  it('dispatches ingest for decidir without forward', () => {
     const actions = pipelineActionsForReceipt('_botDecidir', origin, { message: {} });
     expect(actions).toEqual([{ kind: 'dispatch-ingest', origin }]);
+  });
+
+  it('dispatches ingest for unconfigured _bot topics', () => {
+    const actions = pipelineActionsForReceipt('_botHotdog', origin, { message: {} });
+    expect(actions).toEqual([{ kind: 'dispatch-ingest', origin }]);
+  });
+
+  it('skips ingest for replies on unconfigured _bot topics', () => {
+    const actions = pipelineActionsForReceipt('_botHotdog', origin, { message: {} }, { isReply: true });
+    expect(actions).toEqual([]);
   });
 });
 

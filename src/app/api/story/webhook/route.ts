@@ -7,7 +7,7 @@ import { setMessageReaction } from '@/lib/telegram';
 import { handleError } from '@/lib/utils';
 import { executePipelineActions } from '@/services/pipeline/execute';
 import { pipelineActionsForReceipt } from '@/services/pipeline/routing';
-import { topicFromWebhookPayload } from '@/services/webhook/organisingRoute';
+import { topicFromWebhookPayload, isUserReplyMessage } from '@/services/webhook/organisingRoute';
 
 export async function POST(request: NextRequest) {
   if (request.method !== 'POST') {
@@ -30,12 +30,22 @@ export async function POST(request: NextRequest) {
       topicName?.includes('prisma_events_storying')
     ) {
       const origin = originFromRequest(request);
-      const receiptActions = pipelineActionsForReceipt(topicName, origin, data);
-      await executePipelineActions(receiptActions);
+      const isReply = isUserReplyMessage(data);
+      const actions = pipelineActionsForReceipt(topicName, origin, data, { isReply });
 
-      const serialized = JSON.stringify(data);
-      await redis.lpush(INGEST_BACKLOG_QUEUE, serialized);
-      logger.info(`Message queued for ingest. chat ID: ${chatId}, message ID: ${messageId}, queue: ${INGEST_BACKLOG_QUEUE}`);
+      await executePipelineActions(actions);
+
+      if (!isReply) {
+        const serialized = JSON.stringify(data);
+        await redis.lpush(INGEST_BACKLOG_QUEUE, serialized);
+        logger.info(`Message queued for ingest. chat ID: ${chatId}, message ID: ${messageId}, queue: ${INGEST_BACKLOG_QUEUE}`);
+      } else {
+        logger.info('Reply message received; ingest skipped.', {
+          chatId,
+          messageId,
+          topicName,
+        });
+      }
 
       await setMessageReaction(chatId, messageId);
       logger.info('⚡ Message reacted to.');
