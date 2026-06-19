@@ -6,6 +6,10 @@ app:
   name: Timelining
   sourceUrl: https://github.com/prisma-collective/timelining
 
+deploy:
+  codemods:
+    - propagate/codemods/01-hobby-cron.mjs
+
 provides:
   capabilities:
     - id: timelining.web
@@ -76,7 +80,9 @@ requires:
         - NEO4J_URI
         - NEO4J_USERNAME
         - NEO4J_PASSWORD
-      source: user
+      source: provisioned
+      provisioner: railway.neo4j
+      dockerPath: .docker
     - id: docs.web
       type: env
       key: DOCS_APP_URL
