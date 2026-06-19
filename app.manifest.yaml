@@ -7,6 +7,7 @@ app:
   sourceUrl: https://github.com/prisma-collective/timelining
 
 deploy:
+  workflow: propagate-codemods
   codemods:
     - propagate/codemods/01-hobby-cron.mjs
 

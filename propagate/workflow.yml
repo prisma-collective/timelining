@@ -1,0 +1,56 @@
+# Canonical propagate codemods workflow.
+# Sync this file to .github/workflows/propagate-codemods.yml (GitHub requires that path).
+
+name: Propagate codemods
+
+on:
+  workflow_dispatch:
+    inputs:
+      vercel_plan:
+        description: Vercel plan (hobby or pro)
+        required: true
+        default: hobby
+      deployment_slug:
+        description: Propagate deployment slug
+        required: true
+      event_code:
+        description: Event DNS code
+        required: true
+      app_slug:
+        description: App slug
+        required: true
+      app_url:
+        description: Resolved app URL
+        required: false
+        default: ''
+      codemods:
+        description: Comma-separated codemod paths under propagate/codemods/
+        required: true
+      metadata_json:
+        description: Stack metadata JSON
+        required: false
+        default: '{}'
+
+permissions:
+  contents: write
+
+jobs:
+  codemods:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run propagate codemods
+        env:
+          PROPAGATE_VERCEL_PLAN: ${{ inputs.vercel_plan }}
+          PROPAGATE_DEPLOYMENT_SLUG: ${{ inputs.deployment_slug }}
+          PROPAGATE_EVENT_CODE: ${{ inputs.event_code }}
+          PROPAGATE_APP_SLUG: ${{ inputs.app_slug }}
+          PROPAGATE_APP_URL: ${{ inputs.app_url }}
+          PROPAGATE_CODEMODS: ${{ inputs.codemods }}
+          PROPAGATE_METADATA_JSON: ${{ inputs.metadata_json }}
+        run: node propagate/scripts/run-workflow.mjs
