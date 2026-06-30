@@ -208,4 +208,34 @@ describe('pipelineActionsAfterIngest', () => {
     );
     expect(actions).toEqual([{ kind: 'none' }]);
   });
+
+  it('triggers resolve for recursos text', () => {
+    const actions = pipelineActionsAfterIngest(
+      '_botRecursos',
+      makeEntryInput({
+        chat: { id: 1, type: 'supergroup', topic: '_botRecursos' },
+        textContent: { text: 'https://www.youtube.com/watch?v=abc123' },
+      }),
+      makeEntry({ chat: { id: 1, type: 'supergroup', topic: '_botRecursos' } }),
+      origin
+    );
+    expect(actions).toEqual([
+      { kind: 'trigger-resolve', entryId: 'entry-1', topic: '_botRecursos' },
+    ]);
+  });
+
+  it('triggers resolve for resources alias topic', () => {
+    const actions = pipelineActionsAfterIngest(
+      '_botResources',
+      makeEntryInput({
+        chat: { id: 1, type: 'supergroup', topic: '_botResources' },
+        textContent: { text: 'https://youtu.be/abc123' },
+      }),
+      makeEntry({ chat: { id: 1, type: 'supergroup', topic: '_botResources' } }),
+      origin
+    );
+    expect(actions).toEqual([
+      { kind: 'trigger-resolve', entryId: 'entry-1', topic: '_botResources' },
+    ]);
+  });
 });

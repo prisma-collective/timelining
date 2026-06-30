@@ -6,8 +6,8 @@ import type {
   VoiceNode,
   VoiceProcessingStatus,
 } from '@/lib/db/models/entry';
+import { buildStageFailureCypher, MAX_RETRIES } from '../shared/pipelineStatus';
 import type { VoiceChunkInput, VoicePipelineCounts } from './types';
-import { MAX_RETRIES } from './types';
 
 export async function pickVoiceIdsByStatus(
   status: VoiceProcessingStatus,
@@ -162,20 +162,13 @@ export async function recordStageFailure(
 
   try {
     await session.run(
-      `
-      MATCH (v:Voice {id: $voiceId})
-      SET v.retryCount = coalesce(v.retryCount, 0) + 1
-      WITH v
-      SET v.processingStatus = CASE
-            WHEN v.retryCount >= $maxRetries THEN 'failed'
-            ELSE v.processingStatus
-          END,
-          v.failedStage = CASE
-            WHEN v.retryCount >= $maxRetries THEN $stage
-            ELSE v.failedStage
-          END
-      `,
-      { voiceId, stage, maxRetries: MAX_RETRIES }
+      buildStageFailureCypher({
+        nodeLabel: 'Voice',
+        idParam: 'id',
+        id: voiceId,
+        stage,
+      }),
+      { id: voiceId, stage, maxRetries: MAX_RETRIES }
     );
   } finally {
     await session.close();

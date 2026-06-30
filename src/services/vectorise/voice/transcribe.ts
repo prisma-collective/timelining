@@ -2,8 +2,8 @@ import axios from 'axios';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import OpenAI from 'openai';
 import { logger } from '@/lib/logger';
+import { transcribeAudioFile } from '../shared/whisper';
 import { MAX_VOICE_DURATION_SEC } from './types';
 import {
   loadEntryTopicForVoice,
@@ -48,16 +48,6 @@ async function downloadTelegramFile(filePath: string): Promise<string> {
   const localPath = path.join(os.tmpdir(), `voice-${Date.now()}${ext}`);
   await fs.promises.writeFile(localPath, response.data);
   return localPath;
-}
-
-async function transcribeAudioFile(localPath: string): Promise<string> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const transcription = await openai.audio.transcriptions.create({
-    model: 'whisper-1',
-    file: fs.createReadStream(localPath),
-    language: 'en',
-  });
-  return transcription.text;
 }
 
 export type TranscribeStageResult = 'transcribed' | 'skipped_long' | 'failed' | 'not_found';

@@ -2,6 +2,11 @@ import { runDocsPageVerification } from '@/services/docs/pageVerify';
 import { redis } from '@/lib/redis';
 import { countPagesNeedingVectorisation } from '@/services/vectorise/page/neo4j';
 import {
+  countOutstanding as countResourceOutstanding,
+  countPipelineByStatus as countResourcePipelineByStatus,
+} from '@/services/vectorise/resource/neo4j';
+import type { ResourcePipelineCounts } from '@/services/vectorise/resource/types';
+import {
   countOutstanding as countVoiceOutstanding,
   countPipelineByStatus,
 } from '@/services/vectorise/voice/neo4j';
@@ -32,6 +37,11 @@ export interface PageVectoriseBacklog {
   outstanding: number;
 }
 
+export interface ResourceVectoriseBacklog {
+  outstanding: number;
+  counts: import('@/services/vectorise/resource/types').ResourcePipelineCounts;
+}
+
 export interface DocsSyncBacklog {
   totalPages: number;
   fullySynced: number;
@@ -52,6 +62,7 @@ export interface PipelineBacklogSummary {
   ingest: IngestBacklog;
   voice: VoiceVectoriseBacklog;
   page: PageVectoriseBacklog;
+  resource: ResourceVectoriseBacklog;
   docsSync: DocsSyncBacklog | null;
   failedQueues: FailedQueuesBacklog;
 }
@@ -98,6 +109,14 @@ export async function getPageVectoriseBacklog(): Promise<PageVectoriseBacklog> {
   return { outstanding };
 }
 
+export async function getResourceVectoriseBacklog(): Promise<ResourceVectoriseBacklog> {
+  const [outstanding, counts] = await Promise.all([
+    countResourceOutstanding(),
+    countResourcePipelineByStatus(),
+  ]);
+  return { outstanding, counts };
+}
+
 export async function getDocsSyncBacklog(): Promise<DocsSyncBacklog | null> {
   if (!process.env.DOCS_APP_URL?.trim()) {
     return null;
@@ -122,15 +141,16 @@ export async function getPipelineBacklogSummary(
 ): Promise<PipelineBacklogSummary> {
   const includeDocsSync = options.includeDocsSync ?? true;
 
-  const [ingest, voice, page, docsSync, failedQueues] = await Promise.all([
+  const [ingest, voice, page, resource, docsSync, failedQueues] = await Promise.all([
     getIngestBacklog(),
     getVoiceVectoriseBacklog(),
     getPageVectoriseBacklog(),
+    getResourceVectoriseBacklog(),
     includeDocsSync ? getDocsSyncBacklog() : Promise.resolve(null),
     getFailedQueuesBacklog(),
   ]);
 
-  return { ingest, voice, page, docsSync, failedQueues };
+  return { ingest, voice, page, resource, docsSync, failedQueues };
 }
 
 export function pipelineHasBacklog(summary: PipelineBacklogSummary): boolean {
@@ -139,6 +159,7 @@ export function pipelineHasBacklog(summary: PipelineBacklogSummary): boolean {
   if (summary.failedQueues.transcribe > 0 || summary.failedQueues.resolve > 0) return true;
   if (summary.voice.outstanding > 0) return true;
   if (summary.page.outstanding > 0) return true;
+  if (summary.resource.outstanding > 0) return true;
   if (summary.docsSync != null && summary.docsSync.needsAttention > 0) return true;
   return false;
 }
@@ -147,6 +168,7 @@ export function pipelineHasFailures(summary: PipelineBacklogSummary): boolean {
   if (summary.ingest.failed > 0) return true;
   if (summary.failedQueues.transcribe > 0 || summary.failedQueues.resolve > 0) return true;
   if (summary.voice.counts.failed > 0) return true;
+  if (summary.resource.counts.failed > 0) return true;
   return false;
 }
 

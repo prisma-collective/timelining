@@ -13,6 +13,7 @@ export interface OrganisingResolveRoute {
 
 export interface OrganisingChannel {
   channel: string;
+  aliases?: string[];
   forward?: OrganisingForwardRoute;
   resolve?: OrganisingResolveRoute;
 }
@@ -34,6 +35,11 @@ export const ORGANISING_CONFIG = {
         channel: '_botAgendar',
         forward: { mode: 'replies_only', path: '/api/webhook/resolve/schedule/update' },
         resolve: { path: '/api/webhook/resolve/schedule' },
+      },
+      resources: {
+        channel: '_botRecursos',
+        aliases: ['_botResources'],
+        resolve: { path: '/api/webhook/resolve/resource' },
       },
     },
   },
@@ -80,6 +86,13 @@ export interface OrganisingChannelSpec {
   resolve?: OrganisingResolveRoute;
 }
 
+function channelMatchesTopic(channelSpec: OrganisingChannel, topic: string): boolean {
+  if (channelSpec.channel === topic) {
+    return true;
+  }
+  return channelSpec.aliases?.includes(topic) ?? false;
+}
+
 export function* allChannelSpecs(): Generator<OrganisingChannelSpec> {
   for (const key of Object.keys(ORGANISING_CONFIG) as OrganisingKey[]) {
     const app = ORGANISING_CONFIG[key];
@@ -103,9 +116,19 @@ export function channelSpecForTopic(
     return null;
   }
 
-  for (const spec of allChannelSpecs()) {
-    if (spec.channel === topic) {
-      return spec;
+  for (const key of Object.keys(ORGANISING_CONFIG) as OrganisingKey[]) {
+    const app = ORGANISING_CONFIG[key];
+    for (const [channelKey, spec] of Object.entries(app.channels)) {
+      if (channelMatchesTopic(spec, topic)) {
+        return {
+          key,
+          channelKey,
+          domain: app.domain,
+          channel: spec.channel,
+          ...(spec.forward ? { forward: spec.forward } : {}),
+          ...(spec.resolve ? { resolve: spec.resolve } : {}),
+        };
+      }
     }
   }
 
@@ -164,9 +187,14 @@ export function resolveRouteForTopic(
 
 export function resolveTopics(): string[] {
   const topics: string[] = [];
-  for (const spec of allChannelSpecs()) {
-    if (spec.resolve) {
-      topics.push(spec.channel);
+  for (const key of Object.keys(ORGANISING_CONFIG) as OrganisingKey[]) {
+    for (const spec of Object.values(ORGANISING_CONFIG[key].channels)) {
+      if (spec.resolve) {
+        topics.push(spec.channel);
+        if (spec.aliases) {
+          topics.push(...spec.aliases);
+        }
+      }
     }
   }
   return topics;
