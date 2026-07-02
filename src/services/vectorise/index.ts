@@ -22,14 +22,13 @@ export type {
 
 export {
   runResourceVectoriseTick,
-  runAllResourceVectorisation,
   buildResourceVectoriseResult,
   runResourceVectoriseWithAvailabilityCheck,
 } from './resource';
 export type {
   ResourceVectoriseResult,
   ResourcePipelineCounts,
-  RunAllResourceVectorisationResult,
+  ResourceVectoriseTickResult,
 } from './resource';
 
 export {

@@ -7,6 +7,11 @@ export type PipelineAction =
   | { kind: 'dispatch-ingest'; origin: string }
   | { kind: 'trigger-resolve'; entryId: string; topic: string }
   | { kind: 'dispatch-transcribe'; origin: string; voiceId: string }
+  | {
+      kind: 'dispatch-transcribe-service';
+      voiceId: string;
+      telegramFileId: string;
+    }
   | { kind: 'none' };
 
 export interface ReceiptOptions {
@@ -69,11 +74,16 @@ export function pipelineActionsAfterIngest(
   }
 
   if (hasVoiceOnly(entryInput)) {
+    const voiceId = entry.voice?.id;
+    const telegramFileId = entry.voice?.fileId ?? entryInput.voice?.fileId;
+
     if (isDeferredLongVoice(entryInput)) {
-      return [{ kind: 'none' }];
+      if (!voiceId || !telegramFileId) {
+        return [{ kind: 'none' }];
+      }
+      return [{ kind: 'dispatch-transcribe-service', voiceId, telegramFileId }];
     }
 
-    const voiceId = entry.voice?.id;
     if (!voiceId || !origin) {
       return [{ kind: 'none' }];
     }

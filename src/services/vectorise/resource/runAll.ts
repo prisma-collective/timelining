@@ -1,67 +1,71 @@
 import { logger } from '@/lib/logger';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
-import type { VectoriseStageResult } from '../shared/types';
+import { chunkStage } from './chunk';
+import { embedStage } from './stage';
 import { pickResourceIdsByStatus } from './neo4j';
-import { transcribeStage } from './transcribe';
-import { vectoriseStage } from './stage';
-import { RESOURCE_VECTORISE_BATCH_SIZE, type RunAllResourceVectorisationResult } from './types';
+import type { ResourceVectoriseTickResult } from './types';
 
-const DEFAULT_PICK_BATCH = 200;
-
-export interface RunAllResourceVectorisationOptions {
-  pickBatchSize?: number;
-  onProgress?: (resourceId: string, stage: 'transcribe' | 'vectorise', result: VectoriseStageResult | string) => void;
+export interface RunResourceVectoriseTickOptions {
+  resourceId?: string;
+  stage?: 'chunk' | 'embed' | 'auto';
 }
 
-export async function runAllResourceVectorisation(
-  options: RunAllResourceVectorisationOptions = {}
-): Promise<RunAllResourceVectorisationResult> {
-  const pickBatchSize = options.pickBatchSize ?? DEFAULT_PICK_BATCH;
-  const counts = { transcribed: 0, vectorised: 0, failed: 0, rounds: 0 };
+export async function runResourceVectoriseTick(
+  options: RunResourceVectoriseTickOptions = {}
+): Promise<ResourceVectoriseTickResult> {
+  const counts = { chunked: 0, vectorised: 0, failed: 0, chainResourceId: undefined as string | undefined };
 
   const neo4jReady = await isNeo4jAvailable();
   if (!neo4jReady) {
-    logger.warn('Neo4j not available. Skipping resource vectorise run.');
-    return counts;
+    logger.warn('Neo4j not available. Skipping resource vectorise tick.');
+    return { status: 'skipped', message: 'Neo4j not configured.', ...counts };
   }
 
-  while (true) {
-    const pendingIds = await pickResourceIdsByStatus('pending', pickBatchSize);
-    if (pendingIds.length === 0) {
-      break;
+  try {
+    if (options.resourceId && options.stage === 'chunk') {
+      const result = await chunkStage(options.resourceId);
+      if (result === 'chunked') counts.chunked += 1;
+      if (result === 'failed') counts.failed += 1;
+      return { status: 'success', ...counts };
     }
 
-    counts.rounds += 1;
-    logger.info('Resource transcribe batch', { round: counts.rounds, count: pendingIds.length });
-
-    for (const resourceId of pendingIds) {
-      const result = await transcribeStage(resourceId);
-      options.onProgress?.(resourceId, 'transcribe', result);
-      if (result === 'transcribed') counts.transcribed += 1;
-      else if (result === 'failed') counts.failed += 1;
-    }
-  }
-
-  while (true) {
-    const transcribedIds = await pickResourceIdsByStatus('transcribed', pickBatchSize);
-    if (transcribedIds.length === 0) {
-      break;
-    }
-
-    counts.rounds += 1;
-    logger.info('Resource vectorise batch', { round: counts.rounds, count: transcribedIds.length });
-
-    for (const resourceId of transcribedIds) {
-      const result = await vectoriseStage(resourceId);
-      options.onProgress?.(resourceId, 'vectorise', result);
+    if (options.resourceId && options.stage === 'embed') {
+      const result = await embedStage(options.resourceId, { startTime: Date.now() });
       if (result === 'vectorised') counts.vectorised += 1;
-      else if (result === 'failed') counts.failed += 1;
+      if (result === 'partial') {
+        counts.chainResourceId = options.resourceId;
+      }
+      if (result === 'failed') counts.failed += 1;
+      return { status: 'success', ...counts };
     }
+
+    const transcribedIds = await pickResourceIdsByStatus('transcribed', 1);
+    if (transcribedIds.length > 0) {
+      const resourceId = transcribedIds[0];
+      const chunkResult = await chunkStage(resourceId);
+      if (chunkResult === 'chunked') {
+        counts.chunked += 1;
+        counts.chainResourceId = resourceId;
+      } else if (chunkResult === 'failed') {
+        counts.failed += 1;
+      }
+      return { status: 'success', ...counts };
+    }
+
+    const chunkedIds = await pickResourceIdsByStatus('chunked', 1);
+    if (chunkedIds.length > 0) {
+      const resourceId = chunkedIds[0];
+      const embedResult = await embedStage(resourceId, { startTime: Date.now() });
+      if (embedResult === 'vectorised') counts.vectorised += 1;
+      if (embedResult === 'partial') counts.chainResourceId = resourceId;
+      if (embedResult === 'failed') counts.failed += 1;
+      return { status: 'success', ...counts };
+    }
+
+    return { status: 'success', ...counts };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    logger.error('Resource vectorise tick failed', { error: message });
+    return { status: 'error', message, ...counts };
   }
-
-  return counts;
-}
-
-export async function runResourceVectoriseTick(): Promise<RunAllResourceVectorisationResult> {
-  return runAllResourceVectorisation({ pickBatchSize: RESOURCE_VECTORISE_BATCH_SIZE });
 }

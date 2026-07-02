@@ -1,6 +1,6 @@
 export const MAX_RETRIES = 2;
 
-export type PipelineFailedStage = 'transcribe' | 'vectorise';
+export type PipelineFailedStage = 'transcribe' | 'chunk' | 'vectorise';
 
 export interface RecordStageFailureParams {
   nodeLabel: 'Voice' | 'Resource';

@@ -1,9 +1,9 @@
-export { runResourceVectoriseTick, runAllResourceVectorisation } from './runAll';
+export { runResourceVectoriseTick } from './runAll';
 export { buildResourceVectoriseResult, runResourceVectoriseWithAvailabilityCheck } from './tick';
-export { transcribeStage } from './transcribe';
-export { vectoriseStage } from './stage';
+export { chunkStage } from './chunk';
+export { embedStage } from './stage';
 export type {
   ResourcePipelineCounts,
   ResourceVectoriseResult,
-  RunAllResourceVectorisationResult,
+  ResourceVectoriseTickResult,
 } from './types';

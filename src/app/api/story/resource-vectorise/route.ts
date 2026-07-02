@@ -1,5 +1,13 @@
+import { after } from 'next/server';
 import { logger } from '@/lib/logger';
+import { originFromRequest } from '@/lib/internal-dispatch';
 import { verifyCronOrInfraRequest } from '@/lib/private-auth';
+import {
+  buildResourceEmbedChainPath,
+  chainResourceVectorise,
+} from '@/services/vectorise/resource/chain';
+import { chunkStage } from '@/services/vectorise/resource/chunk';
+import { embedStage } from '@/services/vectorise/resource/stage';
 import {
   buildResourceVectoriseResult,
   runResourceVectoriseWithAvailabilityCheck,
@@ -14,24 +22,73 @@ async function handleResourceVectorise(request: NextRequest) {
     return authError;
   }
 
-  logger.info('Resource vectorise triggered.', { method: request.method });
+  const resourceId = request.nextUrl.searchParams.get('resourceId');
+  const stageParam = request.nextUrl.searchParams.get('stage');
+  const stage =
+    stageParam === 'chunk' || stageParam === 'embed' ? stageParam : undefined;
+  const origin = originFromRequest(request);
+
+  logger.info('Resource vectorise triggered.', {
+    method: request.method,
+    resourceId,
+    stage,
+  });
 
   try {
-    const run = await runResourceVectoriseWithAvailabilityCheck();
-    const result =
-      'status' in run && run.status === 'skipped'
-        ? {
-            status: 'skipped' as const,
+    if (resourceId && stage === 'chunk') {
+      const result = await chunkStage(resourceId);
+      if (result === 'chunked') {
+        after(() => chainResourceVectorise(origin, buildResourceEmbedChainPath(resourceId)));
+      }
+      return NextResponse.json(
+        { status: 'Resource chunk executed', result: { resourceId, stage: result } },
+        { status: 200 }
+      );
+    }
+
+    if (resourceId && stage === 'embed') {
+      const embedResult = await embedStage(resourceId, { startTime: Date.now() });
+      if (embedResult === 'partial') {
+        after(() => chainResourceVectorise(origin, buildResourceEmbedChainPath(resourceId)));
+      }
+      return NextResponse.json(
+        { status: 'Resource embed executed', result: { resourceId, stage: embedResult } },
+        { status: 200 }
+      );
+    }
+
+    const run = await runResourceVectoriseWithAvailabilityCheck({
+      resourceId: resourceId ?? undefined,
+      stage: stage ?? 'auto',
+    });
+
+    if ('status' in run && run.status === 'skipped') {
+      return NextResponse.json(
+        {
+          status: 'Resource vectorise executed',
+          result: {
+            status: 'skipped',
             message: run.message,
-            schedule: '15min' as const,
-            transcribed: 0,
+            schedule: '15min',
+            chunked: 0,
             vectorised: 0,
             failed: 0,
             outstanding: 0,
-            pipeline: { pending: 0, transcribed: 0, vectorised: 0, failed: 0 },
+            pipeline: { pending: 0, transcribed: 0, chunked: 0, vectorised: 0, failed: 0 },
             hasMore: false,
-          }
-        : await buildResourceVectoriseResult(run);
+          },
+        },
+        { status: 200 }
+      );
+    }
+
+    if (run.chainResourceId) {
+      after(() =>
+        chainResourceVectorise(origin, buildResourceEmbedChainPath(run.chainResourceId!))
+      );
+    }
+
+    const result = await buildResourceVectoriseResult(run);
 
     return NextResponse.json({ status: 'Resource vectorise executed', result }, { status: 200 });
   } catch (error: unknown) {

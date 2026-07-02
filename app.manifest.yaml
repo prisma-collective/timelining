@@ -22,6 +22,12 @@ provides:
     - id: story.voice_vectorise
       type: route
       path: /api/story/voice-vectorise
+    - id: story.transcription_voice
+      type: route
+      path: /api/story/transcription/voice
+    - id: story.resource_vectorise
+      type: route
+      path: /api/story/resource-vectorise
     - id: story.ingest
       type: route
       path: /api/story/ingest
@@ -96,6 +102,10 @@ requires:
       type: env
       key: VERCEL_AUTOMATION_BYPASS_SECRET
       source: generated
+    - id: transcribe.service_url
+      type: env
+      key: TRANSCRIBE_SERVICE_URL
+      source: user
 
 dependsOn:
   - docs

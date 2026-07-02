@@ -163,7 +163,7 @@ describe('pipelineActionsAfterIngest', () => {
     ]);
   });
 
-  it('skips transcribe for deferred long voice', () => {
+  it('dispatches long voice to transcribe service', () => {
     const actions = pipelineActionsAfterIngest(
       '_botAgendar',
       makeEntryInput({
@@ -175,10 +175,27 @@ describe('pipelineActionsAfterIngest', () => {
           mimeType: 'audio/ogg',
         },
       }),
-      makeEntry(),
+      makeEntry({
+        voice: {
+          id: 'voice-1',
+          fileId: 'f1',
+          fileUniqueId: 'fu1',
+          fileSize: 1,
+          duration: 200,
+          mimeType: 'audio/ogg',
+          processingStatus: 'pending',
+          retryCount: 0,
+        },
+      }),
       origin
     );
-    expect(actions).toEqual([{ kind: 'none' }]);
+    expect(actions).toEqual([
+      {
+        kind: 'dispatch-transcribe-service',
+        voiceId: 'voice-1',
+        telegramFileId: 'f1',
+      },
+    ]);
   });
 
   it('triggers resolve for enrol text on ingest', () => {

@@ -1,5 +1,6 @@
 import { after } from 'next/server';
 import { dispatchInternalRoute } from '@/lib/internal-dispatch';
+import { dispatchTranscribeJob } from '@/lib/transcribe/dispatch';
 import { triggerResolve } from '@/services/resolve';
 import { forwardToOrganisingWebhook } from '@/services/webhook/organisingRoute';
 import type { PipelineAction } from './routing';
@@ -29,6 +30,13 @@ export async function executePipelineAction(action: PipelineAction): Promise<voi
           { chain: true }
         )
       );
+      break;
+    case 'dispatch-transcribe-service':
+      await dispatchTranscribeJob({
+        sourceKind: 'telegram_voice',
+        nodeId: action.voiceId,
+        telegramFileId: action.telegramFileId,
+      });
       break;
     case 'none':
       break;

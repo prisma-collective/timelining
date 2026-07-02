@@ -23,6 +23,7 @@
     "db:vector-index:recreate": "tsx scripts/db/vector-index-create.ts --recreate",
     "db:check:page-ingest": "tsx scripts/db/check-page-ingest.ts",
     "db:seed:docs-pages": "tsx scripts/db/seed-docs-pages.ts",
+    "db:reset:transcribe-pipeline": "tsx scripts/db/reset-transcribe-pipeline.ts",
     "db:delete:older-decisions": "tsx scripts/db/delete-older-decisions.ts",
     "vectorise:pages": "tsx scripts/run-page-vectorise.ts",
     "dev": "next dev --turbopack",

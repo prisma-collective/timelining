@@ -2,19 +2,19 @@ import { logger } from '@/lib/logger';
 import { isNeo4jAvailable } from '@/lib/db/neo4j';
 import type { ScheduleHint } from '../shared/types';
 import { countOutstanding, countPipelineByStatus } from './neo4j';
-import { runAllResourceVectorisation } from './runAll';
+import { runResourceVectoriseTick } from './runAll';
 import type { ResourceVectoriseResult } from './types';
 
 export async function buildResourceVectoriseResult(
-  run: Awaited<ReturnType<typeof runAllResourceVectorisation>>
+  run: Awaited<ReturnType<typeof runResourceVectoriseTick>>
 ): Promise<ResourceVectoriseResult> {
-  const { transcribed, vectorised, failed } = run;
+  const { chunked, vectorised, failed } = run;
   const outstanding = await safeOutstandingCount();
   const pipeline = await safePipelineCounts();
   const schedule: ScheduleHint = outstanding > 0 ? '30s' : '15min';
 
   logger.info('Resource vectorise run complete', {
-    transcribed,
+    chunked,
     vectorised,
     failed,
     outstanding,
@@ -24,7 +24,7 @@ export async function buildResourceVectoriseResult(
   return {
     status: 'success',
     schedule,
-    transcribed,
+    chunked,
     vectorised,
     failed,
     outstanding,
@@ -33,28 +33,29 @@ export async function buildResourceVectoriseResult(
   };
 }
 
-export async function runResourceVectoriseWithAvailabilityCheck() {
+export async function runResourceVectoriseWithAvailabilityCheck(
+  options: Parameters<typeof runResourceVectoriseTick>[0] = {}
+) {
   const neo4jReady = await isNeo4jAvailable();
   if (!neo4jReady) {
     logger.warn('Neo4j not available. Skipping resource vectorise run.');
     return {
       status: 'skipped' as const,
       message: 'Neo4j not configured.',
-      transcribed: 0,
+      chunked: 0,
       vectorised: 0,
       failed: 0,
-      rounds: 0,
     };
   }
 
-  return runAllResourceVectorisation();
+  return runResourceVectoriseTick(options);
 }
 
 async function safePipelineCounts() {
   try {
     return await countPipelineByStatus();
   } catch {
-    return { pending: 0, transcribed: 0, vectorised: 0, failed: 0 };
+    return { pending: 0, transcribed: 0, chunked: 0, vectorised: 0, failed: 0 };
   }
 }
 

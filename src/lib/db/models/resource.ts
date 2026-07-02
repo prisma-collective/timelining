@@ -1,10 +1,11 @@
 export type ResourceProcessingStatus =
   | 'pending'
   | 'transcribed'
+  | 'chunked'
   | 'vectorised'
   | 'failed';
 
-export type ResourceFailedStage = 'transcribe' | 'vectorise';
+export type ResourceFailedStage = 'transcribe' | 'chunk' | 'vectorise';
 
 export interface ResourceNode {
   id: string;

@@ -4,11 +4,10 @@ import type {
   ResourceFailedStage,
   ResourceNode,
   ResourceProcessingStatus,
-  ResourceChunkInput,
 } from '@/lib/db/models/resource';
 import { buildStageFailureCypher, MAX_RETRIES } from '../shared/pipelineStatus';
-import { YOUTUBE_ELIGIBLE_WHERE } from './youtube';
-import type { ResourcePipelineCounts } from './types';
+import { YOUTUBE_ELIGIBLE_WHERE } from './eligibility';
+import type { ResourcePipelineCounts, ResourceUnvectorisedChunk } from './types';
 
 function mapResourceNode(node: { properties: Record<string, unknown> }): ResourceNode {
   const props = node.properties;
@@ -64,33 +63,7 @@ export async function loadResourceById(resourceId: string): Promise<ResourceNode
   }
 }
 
-export async function markTranscribed(resourceId: string, transcription: string): Promise<void> {
-  const driver = await initDriver();
-  const session = driver.session({ database: 'neo4j' });
-
-  try {
-    await session.run(
-      `
-      MATCH (r:Resource {id: $resourceId})
-      SET r.transcription = $transcription,
-          r.processingStatus = 'transcribed',
-          r.retryCount = 0,
-          r.failedStage = NULL
-      `,
-      { resourceId, transcription }
-    );
-  } finally {
-    await session.close();
-  }
-}
-
-export async function markVectorised(
-  resourceId: string,
-  chunkInputs: ResourceChunkInput[]
-): Promise<void> {
-  const chunks = chunkInputs.map((c) => c.chunk_text);
-  const embeddings = chunkInputs.map((c) => c.embedding);
-
+export async function markChunked(resourceId: string, chunks: string[]): Promise<void> {
   const driver = await initDriver();
   const session = driver.session({ database: 'neo4j' });
 
@@ -103,19 +76,119 @@ export async function markVectorised(
         DELETE rel, old
         WITH r
         UNWIND range(0, size($chunks) - 1) AS i
-        CREATE (c:ResourceChunk:IndexedChunk {
+        CREATE (c:ResourceChunk {
           id: randomUUID(),
           chunk_text: $chunks[i],
-          embedding: $embeddings[i]
+          chunk_index: i,
+          vectorised: false
         })
         MERGE (r)-[:HAS_CHUNK]->(c)
-        SET r.processingStatus = 'vectorised',
+        SET r.processingStatus = 'chunked',
             r.retryCount = 0,
             r.failedStage = NULL
         `,
-        { resourceId, chunks, embeddings }
+        { resourceId, chunks }
       );
     });
+  } finally {
+    await session.close();
+  }
+}
+
+export async function pickUnvectorisedChunks(
+  resourceId: string,
+  limit: number
+): Promise<ResourceUnvectorisedChunk[]> {
+  const driver = await initDriver();
+  const session = driver.session({ database: 'neo4j' });
+
+  try {
+    const result = await session.run(
+      `
+      MATCH (r:Resource {id: $resourceId})-[:HAS_CHUNK]->(c:ResourceChunk)
+      WHERE coalesce(c.vectorised, false) = false
+      RETURN c.id AS id, c.chunk_text AS chunk_text, c.chunk_index AS chunk_index
+      ORDER BY c.chunk_index
+      LIMIT $limit
+      `,
+      { resourceId, limit: neo4j.int(limit) }
+    );
+
+    return result.records.map((record) => ({
+      id: record.get('id') as string,
+      chunk_text: record.get('chunk_text') as string,
+      chunk_index: record.get('chunk_index').toNumber(),
+    }));
+  } finally {
+    await session.close();
+  }
+}
+
+export async function countUnvectorisedChunks(resourceId: string): Promise<number> {
+  const driver = await initDriver();
+  const session = driver.session({ database: 'neo4j' });
+
+  try {
+    const result = await session.run(
+      `
+      MATCH (r:Resource {id: $resourceId})-[:HAS_CHUNK]->(c:ResourceChunk)
+      WHERE coalesce(c.vectorised, false) = false
+      RETURN count(c) AS count
+      `,
+      { resourceId }
+    );
+    return result.records[0].get('count').toNumber();
+  } finally {
+    await session.close();
+  }
+}
+
+export async function markChunksVectorised(
+  chunkIds: string[],
+  embeddings: number[][]
+): Promise<void> {
+  const driver = await initDriver();
+  const session = driver.session({ database: 'neo4j' });
+
+  try {
+    await session.writeTransaction(async (tx) => {
+      for (let i = 0; i < chunkIds.length; i += 1) {
+        await tx.run(
+          `
+          MATCH (c:ResourceChunk {id: $chunkId})
+          SET c.embedding = $embedding,
+              c.vectorised = true
+          SET c:IndexedChunk
+          `,
+          { chunkId: chunkIds[i], embedding: embeddings[i] }
+        );
+      }
+    });
+  } finally {
+    await session.close();
+  }
+}
+
+export async function markResourceVectorisedIfComplete(resourceId: string): Promise<boolean> {
+  const driver = await initDriver();
+  const session = driver.session({ database: 'neo4j' });
+
+  try {
+    const result = await session.run(
+      `
+      MATCH (r:Resource {id: $resourceId})
+      OPTIONAL MATCH (r)-[:HAS_CHUNK]->(c:ResourceChunk)
+      WHERE coalesce(c.vectorised, false) = false
+      WITH r, count(c) AS pending
+      WHERE pending = 0
+      SET r.processingStatus = 'vectorised',
+          r.retryCount = 0,
+          r.failedStage = NULL
+      RETURN r.id AS id
+      `,
+      { resourceId }
+    );
+    return result.records.length > 0;
   } finally {
     await session.close();
   }
@@ -152,7 +225,7 @@ export async function countOutstanding(): Promise<number> {
       `
       MATCH (r:Resource)
       WHERE ${YOUTUBE_ELIGIBLE_WHERE}
-        AND coalesce(r.processingStatus, 'pending') IN ['pending', 'transcribed']
+        AND coalesce(r.processingStatus, 'pending') IN ['transcribed', 'chunked']
       RETURN count(r) AS count
       `
     );
@@ -178,6 +251,7 @@ export async function countPipelineByStatus(): Promise<ResourcePipelineCounts> {
     const counts: ResourcePipelineCounts = {
       pending: 0,
       transcribed: 0,
+      chunked: 0,
       vectorised: 0,
       failed: 0,
     };

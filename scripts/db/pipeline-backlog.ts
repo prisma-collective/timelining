@@ -86,13 +86,14 @@ function printVectorise(summary: Pick<PipelineBacklogSummary, 'voice' | 'page' |
 
   const resourceIcon = statusIcon(resource.outstanding > 0 || resource.counts.failed > 0);
   console.log(`${resourceIcon}  Resource (Resource.processingStatus)`);
-  console.log(`     outstanding: ${resource.outstanding}  (pending + transcribed)`);
+  console.log(`     outstanding: ${resource.outstanding}  (transcribed + chunked)`);
   console.log(
     `     pending: ${resource.counts.pending}, transcribed: ${resource.counts.transcribed}, ` +
-      `vectorised: ${resource.counts.vectorised}, failed: ${resource.counts.failed}`
+      `chunked: ${resource.counts.chunked}, vectorised: ${resource.counts.vectorised}, ` +
+      `failed: ${resource.counts.failed}`
   );
   if (resource.outstanding > 0) {
-    console.log('     Tick: POST /api/story/resource-vectorise (daily cron)');
+    console.log('     Tick: POST /api/story/resource-vectorise (chunk/embed chain)');
   }
 
   if (docsSync) {
@@ -147,7 +148,7 @@ async function loadSummary(stage: PipelineStage | 'all'): Promise<PipelineBacklo
     failedQueues: { ingest: 0, transcribe: 0, resolve: 0 },
     voice: { outstanding: 0, counts: { pending: 0, transcribed: 0, vectorised: 0, failed: 0, deferred_long: 0 } },
     page: { outstanding: 0 },
-    resource: { outstanding: 0, counts: { pending: 0, transcribed: 0, vectorised: 0, failed: 0 } },
+    resource: { outstanding: 0, counts: { pending: 0, transcribed: 0, chunked: 0, vectorised: 0, failed: 0 } },
     docsSync: null,
   };
 
