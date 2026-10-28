@@ -76,6 +76,9 @@ export const INGEST_BACKLOG_QUEUE = 'timelining::ingest::backlog';
 export const INGEST_FAILED_QUEUE = 'timelining::ingest::failed';
 export const TRANSCRIBE_FAILED_QUEUE = 'timelining::transcribe::failed';
 export const RESOLVE_FAILED_QUEUE = 'timelining::resolve::failed';
+/** Redis queues for entries from other sources (POST /api/entries/external). */
+export const INGEST_EXTERNAL_QUEUE = 'timelining::ingest::external';
+export const INGEST_EXTERNAL_FAILED_QUEUE = 'timelining::ingest::external::failed';
 
 export interface OrganisingChannelSpec {
   key: OrganisingKey;

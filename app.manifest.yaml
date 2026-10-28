@@ -34,6 +34,12 @@ provides:
     - id: story.page_vectorise
       type: route
       path: /api/story/page-vectorise
+    - id: entries.external
+      type: route
+      path: /api/entries/external
+    - id: entries.external_ingest
+      type: route
+      path: /api/entries/external/ingest
     - id: story.handle
       type: route
       path: /api/story/{handle}
@@ -106,6 +112,12 @@ requires:
       type: env
       key: TRANSCRIBE_SERVICE_URL
       source: user
+    # One secret per source for POST /api/entries/external: "github=<secret>".
+    - id: entries.external_tokens
+      type: env
+      key: EXTERNAL_ENTRY_TOKENS
+      source: user
+      optional: true
 
 dependsOn:
   - docs

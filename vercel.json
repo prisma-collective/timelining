@@ -9,6 +9,10 @@
         "schedule": "0 0 * * *"
       },
       {
+        "path": "/api/entries/external/ingest",
+        "schedule": "0 0 * * *"
+      },
+      {
         "path": "/api/story/voice-vectorise",
         "schedule": "0 0 * * *"
       },
