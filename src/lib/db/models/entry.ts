@@ -12,8 +12,12 @@ export interface TelegramChatNode {
 
 export type ResolveStatus = 'pending' | 'attempted' | 'successful' | 'failed';
 
+/** Sources that send entries through POST /api/entries/external. */
+export const EXTERNAL_ENTRY_SOURCES = ['github'] as const;
+export type ExternalEntrySource = (typeof EXTERNAL_ENTRY_SOURCES)[number];
+
 /** Where an entry came from. Entries written before sources existed are backfilled as 'telegram'. */
-export type EntrySource = 'telegram' | 'github';
+export type EntrySource = 'telegram' | ExternalEntrySource;
 
 export interface EntryNode {
   id: string;
