@@ -18,11 +18,13 @@ export function getDriver() {
   if (!_driver) {
     const { uri, user, password } = getNeo4jConfig();
     logger.info(`Connecting to Neo4j at ${uri} with user ${user}`);
+    // Secure schemes (neo4j+s://, bolt+s://, +ssc) carry their own TLS settings,
+    // e.g. Neo4j Aura; the driver rejects an explicit `encrypted` option alongside them.
+    const secureScheme = /^(neo4j|bolt)\+(s|ssc):\/\//i.test(uri);
     _driver = neo4j.driver(
       uri,
-      neo4j.auth.basic(user, password), {
-        encrypted: 'ENCRYPTION_OFF'
-      }
+      neo4j.auth.basic(user, password),
+      secureScheme ? {} : { encrypted: 'ENCRYPTION_OFF' }
     );
   }
   return _driver;
