@@ -34,12 +34,12 @@ provides:
     - id: story.page_vectorise
       type: route
       path: /api/story/page-vectorise
-    - id: entries.external
+    - id: github.webhook
       type: route
-      path: /api/entries/external
-    - id: entries.external_ingest
+      path: /api/github/webhook
+    - id: entries.ingest
       type: route
-      path: /api/entries/external/ingest
+      path: /api/entries/ingest
     - id: story.handle
       type: route
       path: /api/story/{handle}
@@ -112,7 +112,7 @@ requires:
       type: env
       key: TRANSCRIBE_SERVICE_URL
       source: user
-    # One secret per source for POST /api/entries/external: "github=<secret>".
+    # One secret per source other than Telegram: "github=<secret>" for POST /api/github/webhook.
     - id: entries.external_tokens
       type: env
       key: EXTERNAL_ENTRY_TOKENS

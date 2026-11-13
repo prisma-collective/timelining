@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { POST } from '@/app/api/entries/external/route';
+import { POST } from '@/app/api/github/webhook/route';
 import { redis } from '@/lib/redis';
 import { dispatchInternalRoute } from '@/lib/internal-dispatch';
 
@@ -28,19 +28,19 @@ const envelope = {
 };
 
 function request(body: unknown, token?: string) {
-  return new NextRequest('https://timelining.test/api/entries/external', {
+  return new NextRequest('https://timelining.test/api/github/webhook', {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
 
-describe('POST /api/entries/external', () => {
+describe('POST /api/github/webhook', () => {
   const env = process.env.EXTERNAL_ENTRY_TOKENS;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.EXTERNAL_ENTRY_TOKENS = 'github=gh-secret';
+    process.env.EXTERNAL_ENTRY_TOKENS = 'github=gh-secret,enrol=enrol-secret';
   });
 
   afterAll(() => {
@@ -57,7 +57,7 @@ describe('POST /api/entries/external', () => {
     );
     expect(dispatchInternalRoute).toHaveBeenCalledWith(
       'https://timelining.test',
-      '/api/entries/external/ingest?limit=1',
+      '/api/entries/ingest?limit=1',
       { chain: true }
     );
   });
@@ -66,6 +66,18 @@ describe('POST /api/entries/external', () => {
     const res = await POST(request(envelope, 'wrong'));
     expect(res.status).toBe(401);
     expect(redis.lpush).not.toHaveBeenCalled();
+  });
+
+  it("refuses another source's token", async () => {
+    const res = await POST(request(envelope, 'enrol-secret'));
+    expect(res.status).toBe(401);
+    expect(redis.lpush).not.toHaveBeenCalled();
+  });
+
+  it('refuses everything while no github token is configured', async () => {
+    process.env.EXTERNAL_ENTRY_TOKENS = 'enrol=enrol-secret';
+    const res = await POST(request(envelope, 'enrol-secret'));
+    expect(res.status).toBe(503);
   });
 
   it('refuses everything while no token is configured', async () => {

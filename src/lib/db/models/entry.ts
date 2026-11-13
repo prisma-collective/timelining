@@ -12,7 +12,7 @@ export interface TelegramChatNode {
 
 export type ResolveStatus = 'pending' | 'attempted' | 'successful' | 'failed';
 
-/** Sources that send entries through POST /api/entries/external. */
+/** Sources other than Telegram. Each has its own route, e.g. POST /api/github/webhook. */
 export const EXTERNAL_ENTRY_SOURCES = ['github'] as const;
 export type ExternalEntrySource = (typeof EXTERNAL_ENTRY_SOURCES)[number];
 

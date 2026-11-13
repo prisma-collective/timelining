@@ -27,22 +27,22 @@ function sameToken(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-/** The source the request's Bearer token belongs to, or the error response to return. */
-export function sourceForRequest(
-  request: NextRequest
-): { source: ExternalEntrySource } | { response: NextResponse } {
-  const tokens = parseSourceTokens(process.env.EXTERNAL_ENTRY_TOKENS);
-  if (tokens.size === 0) {
-    logger.warn('External entry rejected: EXTERNAL_ENTRY_TOKENS not configured');
-    return { response: NextResponse.json({ error: 'External entries are not configured' }, { status: 503 }) };
+/**
+ * Checks the request's Bearer token against this source's token. Returns the error
+ * response, or null when the token is the source's own. A token for another source
+ * is refused: each route takes entries for one source only.
+ */
+export function authorizeSource(request: NextRequest, source: ExternalEntrySource): NextResponse | null {
+  const expected = parseSourceTokens(process.env.EXTERNAL_ENTRY_TOKENS).get(source);
+  if (!expected) {
+    logger.warn('Entry rejected: no token configured for this source', { source });
+    return NextResponse.json({ error: `Entries from ${source} are not configured` }, { status: 503 });
   }
 
   const header = request.headers.get('authorization');
   const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : '';
-  for (const [source, expected] of tokens) {
-    if (token && sameToken(token, expected)) return { source };
-  }
+  if (token && sameToken(token, expected)) return null;
 
-  logger.warn('External entry rejected: unknown token', { hasAuthHeader: !!header });
-  return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  logger.warn('Entry rejected: wrong token', { source, hasAuthHeader: !!header });
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }

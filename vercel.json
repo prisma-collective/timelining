@@ -9,7 +9,7 @@
         "schedule": "0 0 * * *"
       },
       {
-        "path": "/api/entries/external/ingest",
+        "path": "/api/entries/ingest",
         "schedule": "0 0 * * *"
       },
       {
