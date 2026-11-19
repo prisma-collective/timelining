@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { originFromRequest } from '@/lib/internal-dispatch';
 import { redis } from '@/lib/redis';
 import { setMessageReaction } from '@/lib/telegram';
+import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth';
 import { handleError } from '@/lib/utils';
 import { executePipelineActions } from '@/services/pipeline/execute';
 import { pipelineActionsForReceipt } from '@/services/pipeline/routing';
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
     logger.info(request.method);
     return new NextResponse('Method Not Allowed', { status: 405 });
   }
+
+  const unauthorized = verifyTelegramWebhook(request);
+  if (unauthorized) return unauthorized;
 
   logger.info('Webhook triggered.');
 

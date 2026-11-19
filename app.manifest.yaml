@@ -94,6 +94,10 @@ requires:
       type: env
       key: DOCS_APP_URL
       source: capability
+    - id: telegram.webhook_secret
+      type: env
+      key: TELEGRAM_WEBHOOK_SECRET
+      source: generated
     - id: shared.private_api_token
       type: env
       key: PRIVATE_API_TOKEN
