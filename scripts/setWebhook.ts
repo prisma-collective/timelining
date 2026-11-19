@@ -2,6 +2,7 @@ import axios from "axios";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import inquirer from "inquirer";
+import { isValidSecretToken } from "../src/lib/telegram-webhook-auth";
 
 async function promptForMissingInput(token?: string, url?: string) {
   const answers = await inquirer.prompt([
@@ -33,10 +34,12 @@ async function getCurrentWebhook(token: string) {
   return response.data.result?.url || null;
 }
 
-async function setWebhook(token: string, url: string) {
+async function setWebhook(token: string, url: string, secret: string) {
   const endpoint = `https://api.telegram.org/bot${token}/setWebhook`;
   const response = await axios.post(endpoint, { 
     url, 
+    // Telegram sends it back on every update; the webhook refuses updates without it.
+    secret_token: secret,
     allowed_updates: [
       "message",
     ],
@@ -54,10 +57,19 @@ async function main() {
         type: "string",
         description: "Webhook URL",
         })
+        .option("secret", {
+        type: "string",
+        description: "secret_token: the same value as TELEGRAM_WEBHOOK_SECRET on the deployment (defaults to that env var)",
+        })
         .help()
         .parseSync();
 
   const { token, url } = await promptForMissingInput(argv.token, argv.url);
+  const secret = argv.secret ?? process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
+  if (!isValidSecretToken(secret)) {
+    console.error("❌ Give --secret (or TELEGRAM_WEBHOOK_SECRET): 1-256 characters, A-Z a-z 0-9 _ -. The webhook refuses updates without it.");
+    process.exit(1);
+  }
 
   try {
     const currentWebhook = await getCurrentWebhook(token);
@@ -81,7 +93,7 @@ async function main() {
       console.log("ℹ️ No existing webhook found.");
     }
 
-    const result = await setWebhook(token, url);
+    const result = await setWebhook(token, url, secret);
     console.log("✅ Webhook set:", result);
   } catch (error: any) {
     console.error("❌ Error:", error.response?.data || error.message);
